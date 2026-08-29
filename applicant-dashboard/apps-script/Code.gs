@@ -113,9 +113,13 @@ function listData_() {
       cells.push(line[c] == null ? '' : String(line[c]));
     }
 
+    // 잠금 경합으로 아직 ID 가 없는 행은 이번 응답에서만 행 번호를 임시 키로 씁니다.
+    var uid = uidIdx >= 0 ? String(line[uidIdx] || '').trim() : '';
+    if (!uid) uid = 'row-' + (r + 1);
+
     var tsRaw = raw[r][0];
     rows.push({
-      uid: uidIdx >= 0 ? String(line[uidIdx]) : 'row-' + r,
+      uid: uid,
       row: r + 1,
       cells: cells,
       ts: (tsRaw instanceof Date) ? tsRaw.toISOString() : ''
@@ -252,34 +256,71 @@ function adminSheet_(ss) {
 /**
  * 응답 시트 맨 끝에 _관리ID 열을 만들고, 비어 있는 행에 UUID를 채웁니다.
  * 폼으로 새 응답이 들어오면 이 열은 비어 있으므로 다음 조회 때 자동으로 채워집니다.
+ *
+ * 담당자 여러 명이 대시보드를 동시에 열어두면 같은 순간에 조회가 겹칠 수 있습니다.
+ * 그때 두 요청이 같은 행에 서로 다른 ID 를 써 넣으면 먼저 기록한 메모가 떨어져 나가므로,
+ * 실제로 쓸 내용이 있을 때만 잠금을 잡고 잠금 안에서 한 번 더 확인합니다.
  */
 function ensureUids_(sheet) {
   var lastRow = sheet.getLastRow();
   var lastCol = sheet.getLastColumn();
   if (lastRow < 1 || lastCol < 1) return;
 
+  // 1차 확인: 채울 것이 없으면 잠금 없이 그대로 끝냅니다 (대부분의 조회가 여기서 끝납니다).
+  var uidCol = findUidCol_(sheet, lastCol);
+  var needsWrite = !uidCol;
+  if (uidCol && lastRow >= 2) {
+    needsWrite = sheet.getRange(2, uidCol, lastRow - 1, 1).getValues().some(function (r) {
+      return !String(r[0] || '').trim();
+    });
+  }
+  if (!needsWrite) return;
+
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(20000);
+  } catch (e) {
+    return;   // 다른 요청이 처리 중입니다. 다음 조회 때 채워집니다.
+  }
+
+  try {
+    // 2차 확인: 잠금을 기다리는 동안 다른 요청이 이미 채웠을 수 있습니다.
+    lastRow = sheet.getLastRow();
+    lastCol = sheet.getLastColumn();
+    uidCol = findUidCol_(sheet, lastCol);
+
+    if (!uidCol) {
+      uidCol = lastCol + 1;
+      sheet.getRange(1, uidCol).setValue(CONFIG.UID_HEADER);
+    }
+    if (lastRow < 2) return;
+
+    var existing = sheet.getRange(2, uidCol, lastRow - 1, 1).getValues();
+    var changed = false;
+    for (var i = 0; i < existing.length; i++) {
+      if (!String(existing[i][0] || '').trim()) {
+        existing[i][0] = Utilities.getUuid();
+        changed = true;
+      }
+    }
+    if (changed) {
+      sheet.getRange(2, uidCol, existing.length, 1).setValues(existing);
+      SpreadsheetApp.flush();
+    }
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * _관리ID 열의 위치를 머리글 이름으로 찾습니다 (없으면 0).
+ * 폼에 문항이 추가되어 열 위치가 밀려도 이름으로 찾으므로 영향받지 않습니다.
+ */
+function findUidCol_(sheet, lastCol) {
   var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function (h) {
     return String(h).trim();
   });
-  var uidCol = headers.indexOf(CONFIG.UID_HEADER) + 1;
-
-  if (!uidCol) {
-    uidCol = lastCol + 1;
-    sheet.getRange(1, uidCol).setValue(CONFIG.UID_HEADER);
-  }
-  if (lastRow < 2) return;
-
-  var existing = sheet.getRange(2, uidCol, lastRow - 1, 1).getValues();
-  var changed = false;
-  for (var i = 0; i < existing.length; i++) {
-    if (!String(existing[i][0] || '').trim()) {
-      existing[i][0] = Utilities.getUuid();
-      changed = true;
-    }
-  }
-  if (changed) {
-    sheet.getRange(2, uidCol, existing.length, 1).setValues(existing);
-  }
+  return headers.indexOf(CONFIG.UID_HEADER) + 1;
 }
 
 /* ------------------------------------------------------------------ */
