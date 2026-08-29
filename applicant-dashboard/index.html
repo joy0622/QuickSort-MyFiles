@@ -1,0 +1,1717 @@
+<!doctype html>
+<html lang="ko" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>신청자 관리 대시보드</title>
+<style>
+/* ============================= 토큰 ============================= */
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --panel-2:#fbfcfd; --ink:#16191d; --ink-2:#5a6270;
+  --ink-3:#8a93a1; --line:#e3e7ec; --line-2:#eef1f5;
+  --accent:#4f46e5; --accent-ink:#ffffff; --accent-soft:#eef0ff;
+  --ok:#0f9d58; --ok-soft:#e7f6ed; --warn:#b7791f; --warn-soft:#fdf3e0;
+  --danger:#d1453b; --danger-soft:#fdeceb; --info:#2563eb; --info-soft:#e8f0fe;
+  --shadow:0 1px 2px rgba(16,24,40,.06), 0 8px 24px rgba(16,24,40,.06);
+  --radius:10px; --radius-sm:7px;
+}
+:root[data-theme="dark"]{
+  --bg:#0e1116; --panel:#161b22; --panel-2:#1b212a; --ink:#e6e9ee; --ink-2:#9aa4b2;
+  --ink-3:#6e7887; --line:#2a313c; --line-2:#222933;
+  --accent:#7c7cf5; --accent-ink:#0e1116; --accent-soft:#232449;
+  --ok:#42c07a; --ok-soft:#16301f; --warn:#e0a94a; --warn-soft:#332713;
+  --danger:#f2726a; --danger-soft:#361b1a; --info:#6ea8fe; --info-soft:#152238;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font:14px/1.5 -apple-system,BlinkMacSystemFont,"Pretendard","Apple SD Gothic Neo",
+       "Malgun Gothic","맑은 고딕",Roboto,"Noto Sans KR",sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+a{color:var(--accent)}
+
+/* ============================= 레이아웃 ============================= */
+.app{display:flex;flex-direction:column;min-height:100vh}
+.topbar{
+  display:flex;align-items:center;gap:12px;padding:10px 18px;
+  background:var(--panel);border-bottom:1px solid var(--line);
+  position:sticky;top:0;z-index:40;
+}
+.brand{display:flex;align-items:center;gap:9px;font-weight:700;letter-spacing:-.2px}
+.brand .dot{width:9px;height:9px;border-radius:50%;background:var(--accent)}
+.brand small{display:block;font-weight:500;font-size:11px;color:var(--ink-3);letter-spacing:0}
+.spacer{flex:1}
+
+.sync{
+  display:flex;align-items:center;gap:7px;padding:5px 11px;border-radius:999px;
+  background:var(--panel-2);border:1px solid var(--line);font-size:12px;color:var(--ink-2);
+  white-space:nowrap;
+}
+.sync .led{width:7px;height:7px;border-radius:50%;background:var(--ink-3);flex:none}
+.sync[data-state="ok"] .led{background:var(--ok);box-shadow:0 0 0 3px var(--ok-soft)}
+.sync[data-state="loading"] .led{background:var(--info);animation:pulse 1s infinite}
+.sync[data-state="error"] .led{background:var(--danger);box-shadow:0 0 0 3px var(--danger-soft)}
+.sync[data-state="local"] .led{background:var(--warn);box-shadow:0 0 0 3px var(--warn-soft)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+
+.btn{
+  display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;
+  text-decoration:none;
+  border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--panel);
+  color:var(--ink);font-size:13px;font-weight:500;white-space:nowrap;
+  transition:background .12s,border-color .12s,transform .06s;
+}
+.btn:hover{background:var(--panel-2);border-color:var(--ink-3)}
+.btn:active{transform:translateY(1px)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.sm{height:28px;padding:0 9px;font-size:12px}
+.btn.icon{width:34px;padding:0;justify-content:center}
+.btn.ghost{background:transparent;border-color:transparent}
+.btn.ghost:hover{background:var(--panel-2);border-color:var(--line)}
+
+/* ============================= 통계 ============================= */
+.stats{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+  gap:10px;padding:16px 18px 0;
+}
+.stat{
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  padding:12px 14px;position:relative;overflow:hidden;
+  cursor:pointer;transition:border-color .12s,transform .08s;
+}
+.stat:hover{border-color:var(--ink-3)}
+.stat:active{transform:translateY(1px)}
+.stat.active{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.stat .label{font-size:12px;color:var(--ink-2);display:flex;align-items:center;gap:5px}
+.stat .value{font-size:26px;font-weight:700;letter-spacing:-.6px;margin-top:3px;font-variant-numeric:tabular-nums}
+.stat .sub{font-size:11px;color:var(--ink-3);margin-top:1px}
+.stat .bar{position:absolute;left:0;bottom:0;height:3px;background:var(--accent);opacity:.75;transition:width .35s}
+.stat.k-att .bar{background:var(--ok)} .stat.k-sms .bar{background:var(--info)}
+.stat.k-new .bar{background:var(--warn)} .stat.k-cancel .bar{background:var(--danger)}
+
+/* ============================= 툴바 ============================= */
+.toolbar{
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:14px 18px 10px;
+}
+.search{position:relative;flex:1 1 240px;max-width:380px}
+.search input{
+  width:100%;height:34px;padding:0 30px 0 32px;border:1px solid var(--line);
+  border-radius:var(--radius-sm);background:var(--panel);outline:none;
+}
+.search input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.search .ico{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--ink-3);pointer-events:none}
+.search .clear{position:absolute;right:6px;top:50%;transform:translateY(-50%);border:0;background:none;color:var(--ink-3);font-size:16px;line-height:1;padding:2px 5px;border-radius:5px}
+.search .clear:hover{background:var(--line-2);color:var(--ink)}
+
+select.f{
+  height:34px;padding:0 26px 0 10px;border:1px solid var(--line);border-radius:var(--radius-sm);
+  background:var(--panel) no-repeat right 9px center;appearance:none;
+  background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);
+  background-size:5px 5px,5px 5px;background-position:right 13px center,right 9px center;
+  color:var(--ink-2);
+}
+select.f:focus{outline:none;border-color:var(--accent)}
+select.f.on{color:var(--ink);border-color:var(--accent);background-color:var(--accent-soft)}
+
+/* 일괄 처리 바 */
+.bulk{
+  display:none;align-items:center;gap:8px;flex-wrap:wrap;margin:0 18px 10px;
+  padding:9px 12px;border-radius:var(--radius);
+  background:var(--accent-soft);border:1px solid var(--accent);
+}
+.bulk.show{display:flex}
+.bulk .count{font-weight:600;font-size:13px}
+
+/* ============================= 테이블 ============================= */
+.tablewrap{
+  margin:0 18px 18px;background:var(--panel);border:1px solid var(--line);
+  border-radius:var(--radius);box-shadow:var(--shadow);overflow:auto;flex:1;
+}
+table{border-collapse:separate;border-spacing:0;width:100%;min-width:900px}
+thead th{
+  position:sticky;top:0;z-index:5;background:var(--panel-2);
+  border-bottom:1px solid var(--line);text-align:left;font-size:12px;font-weight:600;
+  color:var(--ink-2);padding:9px 10px;white-space:nowrap;user-select:none;
+}
+thead th.sortable{cursor:pointer}
+thead th.sortable:hover{color:var(--ink)}
+thead th .arrow{opacity:.35;margin-left:3px;font-size:10px}
+thead th.sorted .arrow{opacity:1;color:var(--accent)}
+tbody td{border-bottom:1px solid var(--line-2);padding:8px 10px;vertical-align:middle}
+tbody tr{transition:background .1s}
+tbody tr:hover{background:var(--panel-2)}
+tbody tr.sel{background:var(--accent-soft)}
+tbody tr.cancelled td:not(.c-act){opacity:.5;text-decoration:line-through}
+td.c-chk,th.c-chk{width:36px;padding-left:14px}
+td.c-no,th.c-no{width:52px;color:var(--ink-3);font-size:12px;font-variant-numeric:tabular-nums}
+td.c-name{font-weight:600;white-space:nowrap;min-width:96px}
+td.c-phone{white-space:nowrap;font-variant-numeric:tabular-nums}
+td.c-ts{white-space:nowrap;color:var(--ink-2);font-size:12.5px;font-variant-numeric:tabular-nums}
+th.c-toggle,td.c-toggle{width:78px;min-width:78px;text-align:center}
+th.c-status,td.c-status{width:104px;min-width:100px}
+th.c-memo,td.c-memo{min-width:200px;width:28%}
+th.c-act,td.c-act{width:44px;text-align:right;padding-right:14px}
+.cell-ellip{display:block;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+input[type=checkbox]{width:15px;height:15px;accent-color:var(--accent);cursor:pointer;margin:0}
+
+/* 토글 pill */
+.pill{
+  display:inline-flex;align-items:center;justify-content:center;gap:4px;
+  min-width:66px;height:26px;padding:0 9px;border-radius:999px;font-size:12px;font-weight:600;
+  white-space:nowrap;
+  border:1px solid var(--line);background:var(--panel);color:var(--ink-3);
+  transition:all .12s;
+}
+.pill:hover{border-color:var(--ink-3)}
+.pill.on-att{background:var(--ok-soft);border-color:transparent;color:var(--ok)}
+.pill.on-sms{background:var(--info-soft);border-color:transparent;color:var(--info)}
+
+.badge{
+  display:inline-block;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:600;
+  background:var(--line-2);color:var(--ink-2);
+}
+.badge.new{background:var(--warn-soft);color:var(--warn)}
+.badge.dup{background:var(--danger-soft);color:var(--danger)}
+
+select.status{
+  width:100%;min-width:88px;height:28px;border:1px solid var(--line);border-radius:6px;
+  background:var(--panel);padding:0 6px;font-size:12px;
+}
+select.status[data-v="확정"]{background:var(--ok-soft);color:var(--ok);border-color:transparent;font-weight:600}
+select.status[data-v="취소"]{background:var(--danger-soft);color:var(--danger);border-color:transparent;font-weight:600}
+select.status[data-v="대기"]{color:var(--ink-2)}
+
+.memo{
+  width:100%;min-height:28px;max-height:96px;border:1px solid transparent;border-radius:6px;
+  background:transparent;padding:4px 7px;resize:none;overflow:hidden;font-size:13px;
+  line-height:1.45;color:var(--ink);
+}
+.memo::placeholder{color:var(--ink-3)}
+.memo:hover{border-color:var(--line)}
+.memo:focus{outline:none;border-color:var(--accent);background:var(--panel);box-shadow:0 0 0 3px var(--accent-soft)}
+.memo.filled{background:var(--panel-2);border-color:var(--line-2)}
+
+.empty{padding:64px 20px;text-align:center;color:var(--ink-3)}
+.empty h3{margin:0 0 6px;color:var(--ink-2);font-size:15px}
+
+/* ============================= 상세 드로어 ============================= */
+.scrim{position:fixed;inset:0;background:rgba(15,20,28,.42);opacity:0;pointer-events:none;transition:opacity .18s;z-index:50}
+.scrim.show{opacity:1;pointer-events:auto}
+.drawer{
+  position:fixed;top:0;right:0;height:100%;width:min(440px,92vw);z-index:60;
+  background:var(--panel);border-left:1px solid var(--line);box-shadow:var(--shadow);
+  transform:translateX(100%);transition:transform .22s cubic-bezier(.3,.8,.4,1);
+  display:flex;flex-direction:column;
+}
+.drawer.show{transform:none}
+.drawer header{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.drawer header h2{margin:0;font-size:16px;letter-spacing:-.3px}
+.drawer .body{overflow:auto;padding:14px 16px 24px;flex:1}
+.kv{display:grid;grid-template-columns:104px 1fr;gap:7px 12px;font-size:13px;margin-bottom:16px}
+.kv dt{color:var(--ink-3);font-weight:500;word-break:keep-all}
+.kv dd{margin:0;word-break:break-word;white-space:pre-wrap}
+.section-t{font-size:12px;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.4px;margin:18px 0 8px}
+.drawer textarea.big{
+  width:100%;min-height:120px;border:1px solid var(--line);border-radius:var(--radius-sm);
+  background:var(--panel-2);padding:9px 11px;resize:vertical;line-height:1.55;
+}
+.drawer textarea.big:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.drawer .row{display:flex;gap:8px;flex-wrap:wrap}
+
+/* ============================= 모달 ============================= */
+.modal{
+  position:fixed;inset:0;z-index:70;display:none;align-items:center;justify-content:center;padding:20px;
+  background:rgba(15,20,28,.45);
+}
+.modal.show{display:flex}
+.modal .card{
+  width:min(620px,100%);max-height:88vh;overflow:auto;background:var(--panel);
+  border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
+}
+.modal .card > header{display:flex;align-items:center;padding:16px 18px;border-bottom:1px solid var(--line)}
+.modal .card > header h2{margin:0;font-size:16px}
+.modal .card .body{padding:18px}
+.modal .card > footer{display:flex;gap:8px;justify-content:flex-end;padding:14px 18px;border-top:1px solid var(--line)}
+.field{margin-bottom:15px}
+.field label{display:block;font-size:12.5px;font-weight:600;margin-bottom:5px}
+.field .hint{font-size:12px;color:var(--ink-3);margin-top:5px;line-height:1.5}
+.field input[type=text],.field input[type=url],.field input[type=number],.field textarea{
+  width:100%;height:36px;border:1px solid var(--line);border-radius:var(--radius-sm);
+  background:var(--panel-2);padding:0 11px;outline:none;
+}
+.field textarea{height:auto;min-height:64px;padding:9px 11px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
+.field input:focus,.field textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.modes{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:18px}
+.mode{
+  border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px;text-align:left;
+  background:var(--panel-2);font-size:12.5px;
+}
+.mode b{display:block;font-size:13px;margin-bottom:3px}
+.mode span{color:var(--ink-3);font-size:11.5px;line-height:1.45;display:block}
+.mode.on{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 0 0 2px var(--accent-soft)}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;max-height:230px;overflow:auto;
+      border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px}
+.cols label{display:flex;align-items:center;gap:7px;font-size:12.5px;padding:3px 2px;cursor:pointer;
+            overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ============================= 토스트 ============================= */
+.toasts{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:90;display:flex;flex-direction:column;gap:8px;align-items:center}
+.toast{
+  padding:9px 15px;border-radius:999px;background:var(--ink);color:var(--bg);
+  font-size:13px;font-weight:500;box-shadow:var(--shadow);
+  animation:rise .22s ease-out;max-width:90vw;
+}
+.toast.err{background:var(--danger);color:#fff}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+.footnote{padding:0 18px 22px;color:var(--ink-3);font-size:12px;text-align:center}
+kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:1px 5px;font-size:11px;background:var(--panel-2)}
+
+/* ============================= 인쇄 ============================= */
+@media print{
+  body{background:#fff}
+  .topbar,.toolbar,.bulk,.stats,.footnote,.drawer,.scrim,.modal,.toasts,
+  th.c-chk,td.c-chk,th.c-act,td.c-act{display:none !important}
+  .tablewrap{margin:0;border:0;box-shadow:none;overflow:visible}
+  table{min-width:0;font-size:11px}
+  thead th{background:#fff;border-bottom:1.5px solid #000}
+  tbody td{border-bottom:1px solid #ddd}
+  .print-only{display:table-cell !important}
+  .memo{border:0;background:none}
+  select.status{border:0;background:none;appearance:none}
+}
+.print-only{display:none}
+
+@media (max-width:640px){
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .modes{grid-template-columns:1fr}
+  .cols{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <div class="brand">
+      <span class="dot"></span>
+      <div>신청자 관리 대시보드<small id="srcName">데이터 소스 미설정</small></div>
+    </div>
+    <div class="spacer"></div>
+    <div class="sync" id="sync" data-state="idle" title="데이터 동기화 상태">
+      <span class="led"></span><span id="syncText">대기 중</span>
+    </div>
+    <button class="btn" id="btnRefresh" title="새로고침 (R)">↻ 새로고침</button>
+    <button class="btn icon ghost" id="btnPrint" title="출석부 인쇄">🖨</button>
+    <button class="btn icon ghost" id="btnTheme" title="테마 전환">◐</button>
+    <button class="btn" id="btnSettings">⚙ 설정</button>
+  </div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="toolbar">
+    <div class="search">
+      <span class="ico">🔍</span>
+      <input id="q" type="text" placeholder="이름 · 연락처 · 메모 · 모든 응답 검색  ( / )" autocomplete="off">
+      <button class="clear" id="qClear" hidden>×</button>
+    </div>
+    <select class="f" id="fAtt">
+      <option value="all">출석 전체</option>
+      <option value="y">출석</option>
+      <option value="n">미출석</option>
+    </select>
+    <select class="f" id="fSms">
+      <option value="all">문자 전체</option>
+      <option value="y">발송함</option>
+      <option value="n">미발송</option>
+    </select>
+    <select class="f" id="fStatus">
+      <option value="all">상태 전체</option>
+      <option value="대기">대기</option>
+      <option value="확정">확정</option>
+      <option value="취소">취소</option>
+    </select>
+    <select class="f" id="fExtra" title="폼 문항으로 추가 필터"></select>
+    <select class="f" id="fExtraVal" hidden></select>
+    <div class="spacer"></div>
+    <button class="btn" id="btnCols">☰ 열 설정</button>
+    <button class="btn" id="btnExport">⤓ CSV 내보내기</button>
+  </div>
+
+  <div class="bulk" id="bulk">
+    <span class="count"><b id="selCount">0</b>명 선택됨</span>
+    <div class="spacer"></div>
+    <button class="btn sm" data-bulk="att-on">✓ 출석 처리</button>
+    <button class="btn sm" data-bulk="att-off">출석 해제</button>
+    <button class="btn sm" data-bulk="sms-on">✉ 문자발송 표시</button>
+    <button class="btn sm" data-bulk="sms-off">문자 해제</button>
+    <button class="btn sm" data-bulk="copy">📋 연락처 복사</button>
+    <button class="btn sm" data-bulk="status">상태 변경…</button>
+    <button class="btn sm ghost" data-bulk="none">선택 해제</button>
+  </div>
+
+  <div class="tablewrap">
+    <table id="tbl">
+      <thead><tr id="thead"></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div class="empty" id="empty" hidden></div>
+  </div>
+
+  <div class="footnote">
+    단축키 — <kbd>/</kbd> 검색 · <kbd>R</kbd> 새로고침 · <kbd>Esc</kbd> 닫기 &nbsp;|&nbsp;
+    출석 · 문자 · 메모는 변경 즉시 저장됩니다.
+  </div>
+</div>
+
+<div class="scrim" id="scrim"></div>
+
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <header>
+    <h2 id="dName">상세</h2>
+    <div class="spacer"></div>
+    <button class="btn icon ghost" id="dClose" title="닫기 (Esc)">✕</button>
+  </header>
+  <div class="body" id="dBody"></div>
+</aside>
+
+<div class="modal" id="mSettings">
+  <div class="card">
+    <header><h2>데이터 연동 설정</h2><div class="spacer"></div>
+      <button class="btn icon ghost" data-close>✕</button></header>
+    <div class="body">
+      <div class="modes">
+        <button class="mode" data-mode="api"><b>① 실시간 연동</b>
+          <span>Apps Script · 읽기+쓰기. 메모가 시트에 저장돼 여러 명이 함께 씁니다.</span></button>
+        <button class="mode" data-mode="csv"><b>② 시트 CSV</b>
+          <span>웹에 게시한 시트를 읽기 전용으로. 메모는 이 브라우저에만 저장됩니다.</span></button>
+        <button class="mode" data-mode="demo"><b>③ 샘플 데이터</b>
+          <span>연동 없이 화면과 기능을 먼저 확인해 봅니다.</span></button>
+      </div>
+
+      <div id="cfgApi">
+        <div class="field">
+          <label>Apps Script 웹 앱 URL</label>
+          <input type="url" id="inApiUrl" placeholder="https://script.google.com/macros/s/AKfycb.../exec">
+          <div class="hint">스프레드시트 → 확장 프로그램 → Apps Script 에 <code>Code.gs</code> 를 붙여넣고
+            <b>배포 → 새 배포 → 웹 앱</b>(액세스: 모든 사용자)으로 배포한 뒤 나오는 <code>/exec</code> 주소입니다.
+            자세한 절차는 저장소의 <code>README.md</code> 를 보세요.</div>
+        </div>
+        <div class="field">
+          <label>접근 토큰 <span style="color:var(--ink-3);font-weight:400">(선택)</span></label>
+          <input type="text" id="inToken" placeholder="Code.gs 의 API_TOKEN 과 동일하게">
+        </div>
+      </div>
+
+      <div id="cfgCsv" hidden>
+        <div class="field">
+          <label>게시된 CSV 주소</label>
+          <input type="url" id="inCsvUrl" placeholder="https://docs.google.com/spreadsheets/d/e/2PACX-.../pub?output=csv">
+          <div class="hint">시트 → 파일 → 공유 → <b>웹에 게시</b> → 형식 <b>CSV</b> 로 게시한 주소를 넣으세요.
+            신청자 목록은 자동으로 갱신되지만, 출석·문자·메모는 <b>이 브라우저에만</b> 저장됩니다.</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>자동 새로고침 간격 (초)</label>
+        <input type="number" id="inInterval" min="0" max="3600" step="5" style="max-width:140px">
+        <div class="hint">0 을 넣으면 자동 새로고침을 끕니다. 구글 폼 응답이 들어오면 이 주기로 화면에 반영됩니다.</div>
+      </div>
+    </div>
+    <footer>
+      <button class="btn" id="btnTest">연결 테스트</button>
+      <div class="spacer"></div>
+      <button class="btn" data-close>취소</button>
+      <button class="btn primary" id="btnSaveCfg">저장하고 불러오기</button>
+    </footer>
+  </div>
+</div>
+
+<div class="modal" id="mCols">
+  <div class="card">
+    <header><h2>표에 보일 열 선택</h2><div class="spacer"></div>
+      <button class="btn icon ghost" data-close>✕</button></header>
+    <div class="body">
+      <div class="cols" id="colList"></div>
+      <div class="hint" style="margin-top:10px;color:var(--ink-3);font-size:12px">
+        선택하지 않은 문항도 행을 클릭하면 상세 패널에서 모두 확인할 수 있습니다.</div>
+    </div>
+    <footer><button class="btn" data-close>닫기</button></footer>
+  </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<script>
+"use strict";
+/* =================================================================
+   신청자 관리 대시보드
+   - 데이터 소스 3종: Apps Script API / 게시된 CSV / 샘플 데이터
+   - 관리 데이터(출석·문자·상태·메모)는 API 모드에서 시트에,
+     그 외 모드에서는 브라우저 localStorage 에 저장됩니다.
+   ================================================================= */
+
+var LS = {
+  cfg: 'apd.cfg.v1',
+  admin: 'apd.admin.v1.',   // + 소스키
+  known: 'apd.known.v1.',   // + 소스키 (신규 표시용)
+  cols: 'apd.cols.v1.',     // + 소스키
+  theme: 'apd.theme'
+};
+
+var STATUSES = ['대기', '확정', '취소'];
+
+var state = {
+  cfg: null,
+  headers: [],
+  rows: [],          // { uid, cells:[], ts:'' }
+  admin: {},         // uid -> { attendance, sms, status, memo }
+  fields: {},        // 자동 감지된 열 인덱스
+  cols: null,        // 표에 보일 열 인덱스 배열
+  known: null,       // Set(uid) — 이미 확인한 신청자
+  sort: { key: 'ts', dir: -1 },
+  filters: { q: '', att: 'all', sms: 'all', status: 'all', extra: '', extraVal: '' },
+  selected: new Set(),
+  openUid: null,
+  loading: false,
+  lastError: '',
+  syncedAt: null,
+  timer: null,
+  countdown: 0,
+  pending: {},       // uid -> patch (저장 대기)
+  saveTimer: null,
+  saving: false
+};
+
+/* ------------------------------ 유틸 ------------------------------ */
+function $(s, root) { return (root || document).querySelector(s); }
+function $$(s, root) { return Array.prototype.slice.call((root || document).querySelectorAll(s)); }
+
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function hash(str) {
+  var h = 2166136261;
+  for (var i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = (h * 16777619) >>> 0;
+  }
+  return h.toString(36);
+}
+
+function lsGet(key, fallback) {
+  try {
+    var v = localStorage.getItem(key);
+    return v == null ? fallback : JSON.parse(v);
+  } catch (e) { return fallback; }
+}
+function lsSet(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
+}
+
+function toast(msg, isErr) {
+  var box = $('#toasts');
+  var el = document.createElement('div');
+  el.className = 'toast' + (isErr ? ' err' : '');
+  el.textContent = msg;
+  box.appendChild(el);
+  setTimeout(function () {
+    el.style.transition = 'opacity .25s';
+    el.style.opacity = '0';
+    setTimeout(function () { el.remove(); }, 260);
+  }, isErr ? 5200 : 2300);
+}
+
+function fmtTime(d) {
+  if (!d) return '-';
+  var x = (d instanceof Date) ? d : new Date(d);
+  if (isNaN(x)) return '-';
+  var p = function (n) { return n < 10 ? '0' + n : '' + n; };
+  return p(x.getHours()) + ':' + p(x.getMinutes()) + ':' + p(x.getSeconds());
+}
+
+function parseWhen(row) {
+  // 정렬/신규 판단용 날짜. API 가 준 ISO 값 우선, 없으면 타임스탬프 열을 파싱.
+  if (row.ts) {
+    var t = new Date(row.ts);
+    if (!isNaN(t)) return t.getTime();
+  }
+  var idx = state.fields.ts;
+  if (idx != null && idx >= 0) {
+    var raw = String(row.cells[idx] || '').trim();
+    // "2026. 8. 29 오후 3:12:05" 같은 한국 로케일 표기 지원
+    var m = raw.match(/(\d{4})[.\-\/\s]+(\d{1,2})[.\-\/\s]+(\d{1,2})(?:[^\d]+(오전|오후)?\s*(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+    if (m) {
+      var hh = m[5] ? parseInt(m[5], 10) : 0;
+      if (m[4] === '오후' && hh < 12) hh += 12;
+      if (m[4] === '오전' && hh === 12) hh = 0;
+      return new Date(+m[1], +m[2] - 1, +m[3], hh, m[6] ? +m[6] : 0, m[7] ? +m[7] : 0).getTime();
+    }
+    var d = new Date(raw);
+    if (!isNaN(d)) return d.getTime();
+  }
+  return 0;
+}
+
+function normPhone(s) { return String(s || '').replace(/[^0-9]/g, ''); }
+
+function prettyPhone(s) {
+  var d = normPhone(s);
+  if (d.length === 11) return d.slice(0, 3) + '-' + d.slice(3, 7) + '-' + d.slice(7);
+  if (d.length === 10) return d.slice(0, 3) + '-' + d.slice(3, 6) + '-' + d.slice(6);
+  return String(s || '');
+}
+
+function copyText(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(text);
+  }
+  return new Promise(function (res, rej) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); res(); } catch (e) { rej(e); }
+    ta.remove();
+  });
+}
+
+/* ------------------------------ 설정 ------------------------------ */
+function defaultCfg() {
+  return { mode: 'demo', apiUrl: '', token: '', csvUrl: '', interval: 30 };
+}
+
+function loadCfg() {
+  var c = lsGet(LS.cfg, null);
+  if (!c || typeof c !== 'object') return defaultCfg();
+  var d = defaultCfg();
+  for (var k in d) if (!(k in c)) c[k] = d[k];
+  return c;
+}
+
+function sourceKey() {
+  var c = state.cfg;
+  if (c.mode === 'api') return 'api:' + hash(c.apiUrl || '');
+  if (c.mode === 'csv') return 'csv:' + hash(c.csvUrl || '');
+  return 'demo';
+}
+
+/* --------------------------- 데이터 소스 --------------------------- */
+
+function apiUrlWith(params) {
+  var base = state.cfg.apiUrl.trim();
+  var qs = [];
+  for (var k in params) {
+    if (params[k] != null && params[k] !== '') {
+      qs.push(encodeURIComponent(k) + '=' + encodeURIComponent(params[k]));
+    }
+  }
+  if (state.cfg.token) qs.push('token=' + encodeURIComponent(state.cfg.token));
+  return base + (base.indexOf('?') >= 0 ? '&' : '?') + qs.join('&');
+}
+
+function fetchApi() {
+  return fetch(apiUrlWith({ action: 'list' }), { method: 'GET', redirect: 'follow' })
+    .then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.text();
+    })
+    .then(function (txt) {
+      var data;
+      try { data = JSON.parse(txt); }
+      catch (e) {
+        throw new Error('응답을 해석할 수 없습니다. 웹 앱 액세스 권한이 "모든 사용자"인지 확인하세요.');
+      }
+      if (!data.ok) throw new Error(data.error || '알 수 없는 오류');
+      return data;
+    });
+}
+
+function fetchCsv() {
+  return fetch(state.cfg.csvUrl.trim(), { redirect: 'follow' })
+    .then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.text();
+    })
+    .then(function (txt) {
+      var table = parseCsv(txt);
+      if (!table.length) throw new Error('CSV 내용이 비어 있습니다.');
+      var headers = table[0].map(function (h) { return String(h).trim(); });
+      var rows = [];
+      for (var i = 1; i < table.length; i++) {
+        var cells = table[i];
+        if (!cells.some(function (c) { return String(c || '').trim() !== ''; })) continue;
+        while (cells.length < headers.length) cells.push('');
+        rows.push({ uid: 'c' + hash(cells.join('|')), cells: cells, ts: '' });
+      }
+      return { ok: true, headers: headers, rows: rows, admin: null, syncedAt: new Date().toISOString() };
+    });
+}
+
+function parseCsv(text) {
+  var out = [], row = [], cur = '', q = false, i = 0;
+  text = text.replace(/^\uFEFF/, '');
+  while (i < text.length) {
+    var ch = text[i];
+    if (q) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') { cur += '"'; i += 2; continue; }
+        q = false; i++; continue;
+      }
+      cur += ch; i++; continue;
+    }
+    if (ch === '"') { q = true; i++; continue; }
+    if (ch === ',') { row.push(cur); cur = ''; i++; continue; }
+    if (ch === '\r') { i++; continue; }
+    if (ch === '\n') { row.push(cur); out.push(row); row = []; cur = ''; i++; continue; }
+    cur += ch; i++;
+  }
+  if (cur !== '' || row.length) { row.push(cur); out.push(row); }
+  return out;
+}
+
+function demoData() {
+  var headers = ['타임스탬프', '이메일 주소', '성함', '연락처', '참가 프로그램',
+                 '참가 회차', '소속/학교', '특이사항 (알레르기 등)', '개인정보 수집 동의'];
+  var people = [
+    ['김서연', 'seoyeon.kim@example.com', '010-2481-7735', '주말 코딩 클래스', '1회차', '한빛고등학교', '', '동의'],
+    ['박지훈', 'jihoon.park@example.com', '010-5512-9084', '주말 코딩 클래스', '1회차', '대성중학교', '땅콩 알레르기', '동의'],
+    ['이하은', 'haeun.lee@example.com', '010-3390-2216', '진로 탐색 워크숍', '2회차', '서울여자고등학교', '', '동의'],
+    ['최민준', 'minjun.choi@example.com', '010-7724-1150', '주말 코딩 클래스', '2회차', '가온중학교', '휠체어 이용 - 1층 강의실 요청', '동의'],
+    ['정유진', 'yujin.jung@example.com', '010-4408-6621', '진로 탐색 워크숍', '1회차', '동산고등학교', '', '동의'],
+    ['강도윤', 'doyoon.kang@example.com', '010-9931-4472', '주말 코딩 클래스', '3회차', '푸른중학교', '', '동의'],
+    ['윤채원', 'chaewon.yoon@example.com', '010-6650-3308', '진로 탐색 워크숍', '2회차', '한빛고등학교', '노트북 대여 필요', '동의'],
+    ['임서준', 'seojun.lim@example.com', '010-2481-7735', '주말 코딩 클래스', '1회차', '한빛고등학교', '', '동의'],
+    ['한지아', 'jia.han@example.com', '010-8817-5529', '진로 탐색 워크숍', '3회차', '새봄여자중학교', '', '동의'],
+    ['오건우', 'gunwoo.oh@example.com', '010-3325-9960', '주말 코딩 클래스', '2회차', '대성중학교', '', '동의'],
+    ['신예린', 'yerin.shin@example.com', '010-7043-1187', '진로 탐색 워크숍', '1회차', '서울여자고등학교', '', '동의'],
+    ['배준서', 'junseo.bae@example.com', '010-5578-2294', '주말 코딩 클래스', '3회차', '가온중학교', '형제 동반 참석 문의', '동의'],
+    ['문소율', 'soyul.moon@example.com', '010-2216-8840', '진로 탐색 워크숍', '2회차', '동산고등학교', '', '동의'],
+    ['조태윤', 'taeyoon.jo@example.com', '010-9902-3315', '주말 코딩 클래스', '1회차', '푸른중학교', '', '동의']
+  ];
+  var now = Date.now();
+  var rows = people.map(function (p, i) {
+    var t = new Date(now - (people.length - i) * 3.7 * 3600 * 1000);
+    var pad = function (n) { return n < 10 ? '0' + n : n; };
+    var stamp = t.getFullYear() + '. ' + (t.getMonth() + 1) + '. ' + t.getDate() +
+                ' ' + (t.getHours() < 12 ? '오전 ' : '오후 ') +
+                ((t.getHours() % 12) || 12) + ':' + pad(t.getMinutes()) + ':' + pad(t.getSeconds());
+    return {
+      uid: 'demo-' + i,
+      ts: t.toISOString(),
+      cells: [stamp, p[1], p[0], p[2], p[3], p[4], p[5], p[6], p[7]]
+    };
+  });
+  return Promise.resolve({ ok: true, headers: headers, rows: rows, admin: null, syncedAt: new Date().toISOString() });
+}
+
+/* --------------------------- 열 자동 감지 --------------------------- */
+function detectFields(headers) {
+  var norm = headers.map(function (h) {
+    return String(h).toLowerCase().replace(/[\s_\-().]/g, '');
+  });
+  function find(keys, skip) {
+    for (var i = 0; i < norm.length; i++) {
+      if (skip && skip.indexOf(i) >= 0) continue;
+      for (var k = 0; k < keys.length; k++) {
+        if (norm[i].indexOf(keys[k]) >= 0) return i;
+      }
+    }
+    return -1;
+  }
+  var ts = find(['타임스탬프', 'timestamp', '응답시간', '제출시간', '접수일']);
+  if (ts < 0 && headers.length) ts = 0;              // 구글 폼은 항상 1열이 타임스탬프
+  var email = find(['이메일', '메일주소', 'email']);
+  var name = find(['성함', '이름', '신청자명', '참가자명', 'name'], [ts, email]);
+  var phone = find(['연락처', '전화', '휴대폰', '핸드폰', '휴대전화', 'phone', 'mobile', 'tel']);
+  return { ts: ts, name: name, phone: phone, email: email };
+}
+
+function defaultCols(headers, fields) {
+  var picked = [];
+  [fields.ts, fields.name, fields.phone].forEach(function (i) {
+    if (i != null && i >= 0 && picked.indexOf(i) < 0) picked.push(i);
+  });
+  for (var i = 0; i < headers.length && picked.length < 5; i++) {
+    if (picked.indexOf(i) < 0 && i !== fields.email) picked.push(i);
+  }
+  return picked;
+}
+
+/* --------------------------- 관리 데이터 --------------------------- */
+function adminOf(uid) {
+  var a = state.admin[uid];
+  if (!a) {
+    a = { attendance: false, sms: false, status: '', memo: '' };
+    state.admin[uid] = a;
+  }
+  return a;
+}
+
+function saveLocalAdmin() {
+  lsSet(LS.admin + sourceKey(), state.admin);
+}
+
+function applyPatch(uid, patch) {
+  var a = adminOf(uid);
+  for (var k in patch) a[k] = patch[k];
+  if (state.cfg.mode === 'api') {
+    state.pending[uid] = Object.assign(state.pending[uid] || {}, patch);
+    scheduleSave();
+  } else {
+    saveLocalAdmin();
+  }
+}
+
+function scheduleSave() {
+  clearTimeout(state.saveTimer);
+  state.saveTimer = setTimeout(flushSave, 700);
+  setSync('loading', '저장 대기...');
+}
+
+function flushSave() {
+  var items = [];
+  for (var uid in state.pending) {
+    items.push({ uid: uid, patch: state.pending[uid] });
+  }
+  if (!items.length) return;
+  state.pending = {};
+  state.saving = true;
+  setSync('loading', '저장 중...');
+
+  fetch(state.cfg.apiUrl.trim(), {
+    method: 'POST',
+    redirect: 'follow',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },   // preflight 회피
+    body: JSON.stringify({ action: 'saveMany', token: state.cfg.token || '', items: items })
+  })
+    .then(function (r) { return r.text(); })
+    .then(function (txt) {
+      var d = JSON.parse(txt);
+      if (!d.ok) throw new Error(d.error || '저장 실패');
+      state.saving = false;
+      setSync('ok', '저장됨 · ' + fmtTime(new Date()));
+      setTimeout(function () { if (!state.saving) refreshSyncLabel(); }, 1400);
+    })
+    .catch(function (err) {
+      state.saving = false;
+      // 실패한 변경은 다시 대기열로 돌려 다음 시도에 포함시킵니다.
+      items.forEach(function (it) {
+        state.pending[it.uid] = Object.assign(it.patch, state.pending[it.uid] || {});
+      });
+      setSync('error', '저장 실패');
+      toast('시트에 저장하지 못했습니다: ' + err.message, true);
+    });
+}
+
+/* --------------------------- 동기화 상태 --------------------------- */
+function setSync(kind, text) {
+  var el = $('#sync');
+  el.setAttribute('data-state', kind);
+  $('#syncText').textContent = text;
+}
+
+function refreshSyncLabel() {
+  var c = state.cfg;
+  if (state.lastError) { setSync('error', '연결 실패'); return; }
+  if (c.mode === 'demo') { setSync('local', '샘플 데이터'); return; }
+  var base = (c.mode === 'api' ? '실시간 연동' : '읽기 전용') +
+             ' · ' + fmtTime(state.syncedAt);
+  if (c.interval > 0 && state.countdown > 0) base += ' · ' + state.countdown + '초 후 갱신';
+  setSync(c.mode === 'api' ? 'ok' : 'local', base);
+}
+
+/* ------------------------------ 로드 ------------------------------ */
+function load(silent) {
+  if (state.loading) return Promise.resolve();
+  state.loading = true;
+  if (!silent) setSync('loading', '불러오는 중...');
+
+  var p;
+  var mode = state.cfg.mode;
+  if (mode === 'api') {
+    if (!state.cfg.apiUrl.trim()) {
+      state.loading = false;
+      openSettings();
+      return Promise.resolve();
+    }
+    p = fetchApi();
+  } else if (mode === 'csv') {
+    if (!state.cfg.csvUrl.trim()) {
+      state.loading = false;
+      openSettings();
+      return Promise.resolve();
+    }
+    p = fetchCsv();
+  } else {
+    p = demoData();
+  }
+
+  return p.then(function (data) {
+    state.lastError = '';
+    var headersChanged = data.headers.join('|') !== state.headers.join('|');
+    state.headers = data.headers;
+    state.rows = data.rows;
+    state.fields = detectFields(data.headers);
+    state.syncedAt = data.syncedAt ? new Date(data.syncedAt) : new Date();
+
+    // 관리 데이터: API 는 시트값, 그 외는 로컬 저장분
+    if (data.admin) {
+      state.admin = {};
+      for (var k in data.admin) state.admin[k] = data.admin[k];
+      // 아직 서버에 반영되지 않은 변경은 덮어쓰지 않습니다.
+      for (var uid in state.pending) {
+        Object.assign(adminOf(uid), state.pending[uid]);
+      }
+    } else {
+      state.admin = lsGet(LS.admin + sourceKey(), {}) || {};
+    }
+
+    // 표시할 열
+    var savedCols = lsGet(LS.cols + sourceKey(), null);
+    if (!state.cols || headersChanged) {
+      state.cols = (savedCols && savedCols.every(function (i) { return i < data.headers.length; }))
+        ? savedCols : defaultCols(data.headers, state.fields);
+    }
+
+    // 신규 표시용 목록
+    var known = lsGet(LS.known + sourceKey(), null);
+    var first = !known;
+    state.known = new Set(known || []);
+    if (first) {
+      state.rows.forEach(function (r) { state.known.add(r.uid); });
+      lsSet(LS.known + sourceKey(), Array.from(state.known));
+    }
+
+    var srcLabel = data.spreadsheetName
+      ? data.spreadsheetName + (data.sheetName ? ' · ' + data.sheetName : '')
+      : (mode === 'demo' ? '샘플 데이터 (연동 전 미리보기)' : '구글 시트');
+    $('#srcName').textContent = srcLabel + ' · 신청 ' + state.rows.length + '건';
+
+    state.loading = false;
+    render();
+    refreshSyncLabel();
+    resetTimer();
+  }).catch(function (err) {
+    state.loading = false;
+    state.lastError = err.message;
+    setSync('error', '연결 실패');
+    if (!silent) toast('데이터를 불러오지 못했습니다: ' + err.message, true);
+    render();
+    resetTimer();
+  });
+}
+
+function resetTimer() {
+  clearInterval(state.timer);
+  var sec = Number(state.cfg.interval) || 0;
+  if (sec <= 0 || state.cfg.mode === 'demo') { state.countdown = 0; return; }
+  state.countdown = sec;
+  state.timer = setInterval(function () {
+    state.countdown--;
+    if (state.countdown <= 0) { load(true); }
+    else if (!state.saving) refreshSyncLabel();
+  }, 1000);
+}
+
+/* ------------------------------ 조회 ------------------------------ */
+function isNew(row) { return state.known && !state.known.has(row.uid); }
+
+function rowText(row) {
+  return row.cells.join(' ') + ' ' + (adminOf(row.uid).memo || '');
+}
+
+function visibleRows() {
+  var f = state.filters;
+  var q = f.q.trim().toLowerCase();
+  var out = state.rows.filter(function (r) {
+    var a = adminOf(r.uid);
+    if (q && rowText(r).toLowerCase().indexOf(q) < 0) return false;
+    if (f.att === 'y' && !a.attendance) return false;
+    if (f.att === 'n' && a.attendance) return false;
+    if (f.sms === 'y' && !a.sms) return false;
+    if (f.sms === 'n' && a.sms) return false;
+    if (f.status !== 'all') {
+      var st = a.status || '대기';
+      if (st !== f.status) return false;
+    }
+    if (f.newOnly && !isNew(r)) return false;
+    if (f.extra !== '' && f.extraVal !== '') {
+      if (String(r.cells[f.extra] || '') !== f.extraVal) return false;
+    }
+    return true;
+  });
+
+  var key = state.sort.key, dir = state.sort.dir;
+  out.sort(function (a, b) {
+    var va = sortValue(a, key), vb = sortValue(b, key);
+    if (va < vb) return -dir;
+    if (va > vb) return dir;
+    return 0;
+  });
+  return out;
+}
+
+function sortValue(row, key) {
+  var a = adminOf(row.uid);
+  if (key === 'ts') return parseWhen(row);
+  if (key === 'att') return a.attendance ? 1 : 0;
+  if (key === 'sms') return a.sms ? 1 : 0;
+  if (key === 'status') return STATUSES.indexOf(a.status || '대기');
+  if (key === 'memo') return (a.memo || '').toLowerCase();
+  if (typeof key === 'string' && key.indexOf('col:') === 0) {
+    var i = Number(key.slice(4));
+    if (i === state.fields.ts) return parseWhen(row);
+    return String(row.cells[i] || '').toLowerCase();
+  }
+  return 0;
+}
+
+function dupPhones() {
+  var map = {};
+  if (state.fields.phone == null || state.fields.phone < 0) return map;
+  var counts = {};
+  state.rows.forEach(function (r) {
+    var p = normPhone(r.cells[state.fields.phone]);
+    if (p.length >= 9) counts[p] = (counts[p] || 0) + 1;
+  });
+  for (var k in counts) if (counts[k] > 1) map[k] = counts[k];
+  return map;
+}
+
+/* ------------------------------ 렌더 ------------------------------ */
+function render() {
+  renderStats();
+  renderHead();
+  renderBody();
+  renderExtraFilter();
+  renderBulk();
+}
+
+function renderStats() {
+  var rows = state.rows;
+  var total = rows.length;
+  var att = 0, sms = 0, cancel = 0, fresh = 0, today = 0;
+  var startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0);
+  rows.forEach(function (r) {
+    var a = adminOf(r.uid);
+    if (a.attendance) att++;
+    if (a.sms) sms++;
+    if ((a.status || '') === '취소') cancel++;
+    if (isNew(r)) fresh++;
+    if (parseWhen(r) >= startOfDay.getTime()) today++;
+  });
+  var active = total - cancel;
+  var f = state.filters;
+  var pct = function (n) { return total ? Math.round(n / total * 100) : 0; };
+
+  var cards = [
+    { k: 'all', cls: '', label: '전체 신청', value: total, sub: '오늘 접수 ' + today + '건', bar: 100,
+      on: (f.att === 'all' && f.sms === 'all' && f.status === 'all' && !f.newOnly) },
+    { k: 'new', cls: 'k-new', label: '새 신청', value: fresh, sub: fresh ? '아직 확인 전' : '모두 확인함',
+      bar: pct(fresh), on: !!f.newOnly, action: fresh ? '확인' : '' },
+    { k: 'att', cls: 'k-att', label: '출석', value: att, sub: pct(att) + '% · 미출석 ' + (active - att) + '명',
+      bar: pct(att), on: f.att === 'y' },
+    { k: 'natt', cls: 'k-att', label: '미출석', value: Math.max(0, active - att), sub: '취소 제외',
+      bar: pct(Math.max(0, active - att)), on: f.att === 'n' },
+    { k: 'sms', cls: 'k-sms', label: '문자 발송', value: sms, sub: pct(sms) + '% 발송 완료',
+      bar: pct(sms), on: f.sms === 'y' },
+    { k: 'nsms', cls: 'k-sms', label: '문자 미발송', value: Math.max(0, active - sms), sub: '발송 대상',
+      bar: pct(Math.max(0, active - sms)), on: f.sms === 'n' },
+    { k: 'cancel', cls: 'k-cancel', label: '취소', value: cancel, sub: cancel ? '명단에서 제외' : '없음',
+      bar: pct(cancel), on: f.status === '취소' }
+  ];
+
+  $('#stats').innerHTML = cards.map(function (c) {
+    return '<div class="stat ' + c.cls + (c.on ? ' active' : '') + '" data-stat="' + c.k + '">' +
+      '<div class="label">' + esc(c.label) +
+        (c.action ? ' <button class="btn sm ghost" data-seen style="height:18px;padding:0 6px;font-size:11px">' + c.action + '</button>' : '') +
+      '</div>' +
+      '<div class="value">' + c.value + '</div>' +
+      '<div class="sub">' + esc(c.sub) + '</div>' +
+      '<div class="bar" style="width:' + Math.min(100, c.bar) + '%"></div>' +
+      '</div>';
+  }).join('');
+}
+
+function th(key, label, cls) {
+  var sorted = state.sort.key === key;
+  return '<th class="' + (cls || '') + ' sortable' + (sorted ? ' sorted' : '') + '" data-sort="' + esc(key) + '">' +
+    esc(label) + '<span class="arrow">' + (sorted ? (state.sort.dir > 0 ? '▲' : '▼') : '↕') + '</span></th>';
+}
+
+function renderHead() {
+  var visible = visibleRows();
+  var allSel = visible.length > 0 && visible.every(function (r) { return state.selected.has(r.uid); });
+  var html = '<th class="c-chk"><input type="checkbox" id="chkAll"' + (allSel ? ' checked' : '') + ' title="전체 선택"></th>';
+  html += '<th class="c-no">#</th>';
+  state.cols.forEach(function (i) {
+    var cls = i === state.fields.name ? 'c-name'
+            : i === state.fields.phone ? 'c-phone'
+            : i === state.fields.ts ? 'c-ts' : '';
+    html += th('col:' + i, state.headers[i] || ('열 ' + (i + 1)), cls);
+  });
+  html += th('att', '출석', 'c-toggle');
+  html += th('sms', '문자', 'c-toggle');
+  html += th('status', '상태', 'c-status');
+  html += th('memo', '메모 / 특이사항', 'c-memo');
+  html += '<th class="print-only">서명</th>';
+  html += '<th class="c-act"></th>';
+  $('#thead').innerHTML = html;
+}
+
+function renderBody() {
+  var wrap = $('.tablewrap');
+  var keepScroll = wrap.scrollTop;
+  var rows = visibleRows();
+  var dups = dupPhones();
+  var tbody = $('#tbody');
+
+  if (!rows.length) {
+    tbody.innerHTML = '';
+    var e = $('#empty');
+    e.hidden = false;
+    if (state.lastError) {
+      e.innerHTML = '<h3>데이터를 불러오지 못했습니다</h3><div>' + esc(state.lastError) +
+        '</div><div style="margin-top:14px"><button class="btn" onclick="openSettings()">설정 열기</button></div>';
+    } else if (!state.rows.length) {
+      e.innerHTML = '<h3>아직 신청자가 없습니다</h3><div>구글 폼으로 응답이 들어오면 이 표에 자동으로 나타납니다.</div>';
+    } else {
+      e.innerHTML = '<h3>조건에 맞는 신청자가 없습니다</h3>' +
+        '<div style="margin-top:14px"><button class="btn" data-clear-filters>필터 초기화</button></div>';
+    }
+    return;
+  }
+  $('#empty').hidden = true;
+
+  var out = [];
+  rows.forEach(function (r, n) {
+    var a = adminOf(r.uid);
+    var st = a.status || '대기';
+    var sel = state.selected.has(r.uid);
+    var phone = state.fields.phone >= 0 ? normPhone(r.cells[state.fields.phone]) : '';
+    var isDup = phone && dups[phone];
+
+    var tds = '<td class="c-chk"><input type="checkbox" data-sel="' + esc(r.uid) + '"' + (sel ? ' checked' : '') + '></td>';
+    tds += '<td class="c-no">' + (n + 1) + '</td>';
+
+    state.cols.forEach(function (i) {
+      var v = r.cells[i] == null ? '' : String(r.cells[i]);
+      var cls = '', inner;
+      if (i === state.fields.name) {
+        cls = 'c-name';
+        inner = esc(v || '(이름 없음)') +
+          (isNew(r) ? ' <span class="badge new">NEW</span>' : '') +
+          (isDup ? ' <span class="badge dup" title="같은 연락처로 ' + dups[phone] + '건 접수">중복</span>' : '');
+      } else if (i === state.fields.phone) {
+        cls = 'c-phone';
+        inner = esc(prettyPhone(v));
+      } else if (i === state.fields.ts) {
+        cls = 'c-ts';
+        inner = esc(v);
+      } else {
+        inner = '<span class="cell-ellip" title="' + esc(v) + '">' + esc(v) + '</span>';
+      }
+      tds += '<td class="' + cls + '">' + inner + '</td>';
+    });
+
+    tds += '<td class="c-toggle"><button class="pill' + (a.attendance ? ' on-att' : '') +
+           '" data-toggle="attendance" data-uid="' + esc(r.uid) + '">' +
+           (a.attendance ? '✓ 출석' : '미출석') + '</button></td>';
+    tds += '<td class="c-toggle"><button class="pill' + (a.sms ? ' on-sms' : '') +
+           '" data-toggle="sms" data-uid="' + esc(r.uid) + '">' +
+           (a.sms ? '✓ 발송' : '미발송') + '</button></td>';
+
+    tds += '<td class="c-status"><select class="status" data-status data-uid="' + esc(r.uid) + '" data-v="' + esc(st) + '">' +
+      STATUSES.map(function (s) {
+        return '<option value="' + esc(s) + '"' + (s === st ? ' selected' : '') + '>' + esc(s) + '</option>';
+      }).join('') + '</select></td>';
+
+    tds += '<td class="c-memo"><textarea class="memo' + (a.memo ? ' filled' : '') +
+      '" rows="1" placeholder="메모 입력..." data-memo data-uid="' + esc(r.uid) + '">' + esc(a.memo || '') + '</textarea></td>';
+
+    tds += '<td class="print-only" style="min-width:90px"></td>';
+    tds += '<td class="c-act"><button class="btn sm ghost" data-open="' + esc(r.uid) + '" title="상세 보기">›</button></td>';
+
+    out.push('<tr class="' + (sel ? 'sel ' : '') + (st === '취소' ? 'cancelled' : '') +
+      '" data-row="' + esc(r.uid) + '">' + tds + '</tr>');
+  });
+
+  tbody.innerHTML = out.join('');
+  $$('.memo', tbody).forEach(autosize);
+  wrap.scrollTop = keepScroll;
+}
+
+function autosize(ta) {
+  ta.style.height = 'auto';
+  ta.style.height = Math.min(96, ta.scrollHeight) + 'px';
+}
+
+function renderExtraFilter() {
+  var sel = $('#fExtra');
+  if (sel.dataset.built === state.headers.join('|')) { syncExtraVal(); return; }
+  sel.dataset.built = state.headers.join('|');
+
+  var opts = ['<option value="">문항 필터...</option>'];
+  state.headers.forEach(function (h, i) {
+    if (i === state.fields.ts || i === state.fields.name ||
+        i === state.fields.phone || i === state.fields.email) return;
+    var vals = {};
+    var count = 0;
+    for (var r = 0; r < state.rows.length; r++) {
+      var v = String(state.rows[r].cells[i] || '').trim();
+      if (!v) continue;
+      if (!vals[v]) { vals[v] = 1; count++; }
+      if (count > 20) break;
+    }
+    if (count >= 2 && count <= 20) {
+      opts.push('<option value="' + i + '">' + esc(h) + '</option>');
+    }
+  });
+  sel.innerHTML = opts.join('');
+  sel.value = state.filters.extra === '' ? '' : String(state.filters.extra);
+  syncExtraVal();
+}
+
+function syncExtraVal() {
+  var sel = $('#fExtraVal');
+  var i = state.filters.extra;
+  if (i === '') { sel.hidden = true; sel.innerHTML = ''; return; }
+  var vals = [];
+  state.rows.forEach(function (r) {
+    var v = String(r.cells[i] || '').trim();
+    if (v && vals.indexOf(v) < 0) vals.push(v);
+  });
+  vals.sort();
+  sel.hidden = false;
+  sel.innerHTML = '<option value="">전체</option>' + vals.map(function (v) {
+    return '<option value="' + esc(v) + '"' + (v === state.filters.extraVal ? ' selected' : '') + '>' + esc(v) + '</option>';
+  }).join('');
+  sel.classList.toggle('on', state.filters.extraVal !== '');
+}
+
+function renderBulk() {
+  var n = state.selected.size;
+  $('#bulk').classList.toggle('show', n > 0);
+  $('#selCount').textContent = n;
+  ['#fAtt', '#fSms', '#fStatus'].forEach(function (s) {
+    var el = $(s);
+    el.classList.toggle('on', el.value !== 'all');
+  });
+}
+
+/* ---------------------------- 상세 패널 ---------------------------- */
+function openDrawer(uid) {
+  var row = state.rows.filter(function (r) { return r.uid === uid; })[0];
+  if (!row) return;
+  state.openUid = uid;
+  var a = adminOf(uid);
+  var name = state.fields.name >= 0 ? row.cells[state.fields.name] : '';
+  var phoneRaw = state.fields.phone >= 0 ? row.cells[state.fields.phone] : '';
+  var phone = normPhone(phoneRaw);
+
+  $('#dName').textContent = name || '신청자 상세';
+
+  var kv = state.headers.map(function (h, i) {
+    var v = String(row.cells[i] == null ? '' : row.cells[i]);
+    if (!v.trim()) return '';
+    return '<dt>' + esc(h) + '</dt><dd>' + esc(i === state.fields.phone ? prettyPhone(v) : v) + '</dd>';
+  }).join('');
+
+  var actions = '';
+  if (phone) {
+    actions = '<div class="row" style="margin-bottom:16px">' +
+      '<a class="btn" href="tel:' + esc(phone) + '">📞 전화</a>' +
+      '<a class="btn" href="sms:' + esc(phone) + '">✉ 문자 앱 열기</a>' +
+      '<button class="btn" data-copy="' + esc(prettyPhone(phoneRaw)) + '">📋 번호 복사</button>' +
+      '</div>';
+  }
+
+  $('#dBody').innerHTML =
+    actions +
+    '<div class="row" style="margin-bottom:6px">' +
+      '<button class="btn' + (a.attendance ? ' primary' : '') + '" data-toggle="attendance" data-uid="' + esc(uid) + '">' +
+        (a.attendance ? '✓ 출석 완료' : '출석 처리') + '</button>' +
+      '<button class="btn' + (a.sms ? ' primary' : '') + '" data-toggle="sms" data-uid="' + esc(uid) + '">' +
+        (a.sms ? '✓ 문자 발송함' : '문자 발송 표시') + '</button>' +
+    '</div>' +
+    '<div class="section-t">참가 상태</div>' +
+    '<select class="status" data-status data-uid="' + esc(uid) + '" data-v="' + esc(a.status || '대기') + '" style="height:34px">' +
+      STATUSES.map(function (s) {
+        return '<option value="' + esc(s) + '"' + (s === (a.status || '대기') ? ' selected' : '') + '>' + esc(s) + '</option>';
+      }).join('') + '</select>' +
+    '<div class="section-t">메모 / 특이사항</div>' +
+    '<textarea class="big" data-memo data-uid="' + esc(uid) + '" placeholder="전화 통화 내용, 준비물, 환불 요청 등 자유롭게 기록하세요."></textarea>' +
+    '<div class="section-t">폼 응답 전체</div>' +
+    '<dl class="kv">' + kv + '</dl>';
+
+  $('#dBody textarea.big').value = a.memo || '';
+  $('#drawer').classList.add('show');
+  $('#drawer').setAttribute('aria-hidden', 'false');
+  $('#scrim').classList.add('show');
+}
+
+function closeDrawer() {
+  state.openUid = null;
+  $('#drawer').classList.remove('show');
+  $('#drawer').setAttribute('aria-hidden', 'true');
+  $('#scrim').classList.remove('show');
+}
+
+/* ---------------------------- CSV 내보내기 ---------------------------- */
+function csvCell(v) {
+  var s = String(v == null ? '' : v);
+  return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+function exportCsv() {
+  var rows = visibleRows();
+  if (!rows.length) { toast('내보낼 데이터가 없습니다.', true); return; }
+  var head = state.headers.concat(['출석', '문자발송', '상태', '메모']);
+  var lines = [head.map(csvCell).join(',')];
+  rows.forEach(function (r) {
+    var a = adminOf(r.uid);
+    var line = r.cells.slice(0, state.headers.length).map(csvCell);
+    while (line.length < state.headers.length) line.push('');
+    line.push(a.attendance ? 'O' : '', a.sms ? 'O' : '', a.status || '대기', a.memo || '');
+    lines.push(line.map(csvCell).join(','));
+  });
+  var blob = new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  var url = URL.createObjectURL(blob);
+  var d = new Date();
+  var pad = function (n) { return n < 10 ? '0' + n : n; };
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = '신청자명단_' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  toast(rows.length + '건을 CSV로 내보냈습니다.');
+}
+
+/* ---------------------------- 일괄 처리 ---------------------------- */
+function bulk(kind) {
+  var uids = Array.from(state.selected);
+  if (!uids.length) return;
+
+  if (kind === 'none') { state.selected.clear(); render(); return; }
+
+  if (kind === 'copy') {
+    if (state.fields.phone < 0) { toast('연락처 열을 찾지 못했습니다.', true); return; }
+    var byUid = {};
+    state.rows.forEach(function (r) { byUid[r.uid] = r; });
+    var list = uids.map(function (u) {
+      return byUid[u] ? prettyPhone(byUid[u].cells[state.fields.phone]) : '';
+    }).filter(Boolean);
+    copyText(list.join(', ')).then(function () {
+      toast(list.length + '개의 연락처를 복사했습니다. 문자 발송 화면에 붙여넣으세요.');
+    }).catch(function () { toast('복사에 실패했습니다.', true); });
+    return;
+  }
+
+  if (kind === 'status') {
+    var v = prompt('변경할 상태를 입력하세요 (' + STATUSES.join(' / ') + ')', '확정');
+    if (!v) return;
+    v = v.trim();
+    if (STATUSES.indexOf(v) < 0) { toast('대기 / 확정 / 취소 중에서 입력하세요.', true); return; }
+    uids.forEach(function (u) { applyPatch(u, { status: v }); });
+    toast(uids.length + '명의 상태를 "' + v + '"(으)로 변경했습니다.');
+    render();
+    return;
+  }
+
+  var map = {
+    'att-on': { attendance: true }, 'att-off': { attendance: false },
+    'sms-on': { sms: true }, 'sms-off': { sms: false }
+  };
+  var patch = map[kind];
+  if (!patch) return;
+  uids.forEach(function (u) { applyPatch(u, Object.assign({}, patch)); });
+  var labels = {
+    'att-on': '출석 처리', 'att-off': '출석 해제',
+    'sms-on': '문자 발송 표시', 'sms-off': '문자 발송 해제'
+  };
+  toast(uids.length + '명 ' + labels[kind] + ' 완료');
+  render();
+}
+
+/* ------------------------------ 설정 ------------------------------ */
+function openSettings() {
+  var c = state.cfg;
+  $('#inApiUrl').value = c.apiUrl || '';
+  $('#inToken').value = c.token || '';
+  $('#inCsvUrl').value = c.csvUrl || '';
+  $('#inInterval').value = c.interval;
+  setModeUI(c.mode);
+  $('#mSettings').classList.add('show');
+  setTimeout(function () {
+    var f = c.mode === 'csv' ? $('#inCsvUrl') : $('#inApiUrl');
+    if (c.mode !== 'demo') f.focus();
+  }, 60);
+}
+
+function setModeUI(mode) {
+  $$('.mode').forEach(function (b) { b.classList.toggle('on', b.dataset.mode === mode); });
+  $('#cfgApi').hidden = mode !== 'api';
+  $('#cfgCsv').hidden = mode !== 'csv';
+}
+
+function currentModeUI() {
+  var on = $('.mode.on');
+  return on ? on.dataset.mode : 'demo';
+}
+
+function saveSettings() {
+  var mode = currentModeUI();
+  var apiUrl = $('#inApiUrl').value.trim();
+  var csvUrl = $('#inCsvUrl').value.trim();
+
+  if (mode === 'api' && !/^https:\/\/script\.google\.com\/.+\/exec/.test(apiUrl)) {
+    if (!confirm('Apps Script 웹 앱 주소는 보통 https://script.google.com/macros/s/.../exec 형태입니다.\n그래도 이 주소로 저장할까요?')) return;
+  }
+  if (mode === 'csv' && !/^https?:\/\//.test(csvUrl)) {
+    toast('게시된 CSV 주소를 입력하세요.', true);
+    return;
+  }
+
+  state.cfg = {
+    mode: mode,
+    apiUrl: apiUrl,
+    token: $('#inToken').value.trim(),
+    csvUrl: csvUrl,
+    interval: Math.max(0, Math.min(3600, Number($('#inInterval').value) || 0))
+  };
+  lsSet(LS.cfg, state.cfg);
+  $('#mSettings').classList.remove('show');
+  state.cols = null;
+  state.selected.clear();
+  state.pending = {};
+  load();
+}
+
+function testConnection() {
+  var mode = currentModeUI();
+  if (mode === 'demo') { toast('샘플 데이터는 연결이 필요 없습니다.'); return; }
+  var btn = $('#btnTest');
+  btn.disabled = true;
+  btn.textContent = '확인 중...';
+  var saved = state.cfg;
+  state.cfg = {
+    mode: mode,
+    apiUrl: $('#inApiUrl').value.trim(),
+    token: $('#inToken').value.trim(),
+    csvUrl: $('#inCsvUrl').value.trim(),
+    interval: saved.interval
+  };
+  var p = mode === 'api' ? fetchApi() : fetchCsv();
+  p.then(function (d) {
+    toast('연결 성공 — 신청자 ' + d.rows.length + '건, 문항 ' + d.headers.length + '개를 확인했습니다.');
+  }).catch(function (e) {
+    toast('연결 실패: ' + e.message, true);
+  }).then(function () {
+    state.cfg = saved;
+    btn.disabled = false;
+    btn.textContent = '연결 테스트';
+  });
+}
+
+/* ---------------------------- 열 설정 ---------------------------- */
+function openCols() {
+  $('#colList').innerHTML = state.headers.map(function (h, i) {
+    return '<label><input type="checkbox" data-col="' + i + '"' +
+      (state.cols.indexOf(i) >= 0 ? ' checked' : '') + '><span title="' + esc(h) + '">' + esc(h) + '</span></label>';
+  }).join('');
+  $('#mCols').classList.add('show');
+}
+
+/* ------------------------------ 이벤트 ------------------------------ */
+function bindEvents() {
+  // 검색
+  var q = $('#q');
+  var qt;
+  q.addEventListener('input', function () {
+    $('#qClear').hidden = !q.value;
+    clearTimeout(qt);
+    qt = setTimeout(function () {
+      state.filters.q = q.value;
+      renderStats(); renderHead(); renderBody();
+    }, 160);
+  });
+  $('#qClear').addEventListener('click', function () {
+    q.value = ''; $('#qClear').hidden = true;
+    state.filters.q = ''; render(); q.focus();
+  });
+
+  // 필터
+  $('#fAtt').addEventListener('change', function () { state.filters.att = this.value; render(); });
+  $('#fSms').addEventListener('change', function () { state.filters.sms = this.value; render(); });
+  $('#fStatus').addEventListener('change', function () { state.filters.status = this.value; render(); });
+  $('#fExtra').addEventListener('change', function () {
+    state.filters.extra = this.value === '' ? '' : Number(this.value);
+    state.filters.extraVal = '';
+    this.classList.toggle('on', this.value !== '');
+    syncExtraVal(); render();
+  });
+  $('#fExtraVal').addEventListener('change', function () {
+    state.filters.extraVal = this.value;
+    this.classList.toggle('on', this.value !== '');
+    render();
+  });
+
+  // 통계 카드
+  $('#stats').addEventListener('click', function (e) {
+    if (e.target.closest('[data-seen]')) {
+      state.rows.forEach(function (r) { state.known.add(r.uid); });
+      lsSet(LS.known + sourceKey(), Array.from(state.known));
+      state.filters.newOnly = false;
+      render();
+      toast('새 신청 표시를 모두 확인 처리했습니다.');
+      return;
+    }
+    var card = e.target.closest('[data-stat]');
+    if (!card) return;
+    var k = card.dataset.stat;
+    var f = state.filters;
+    f.newOnly = false;
+    if (k === 'all') { f.att = 'all'; f.sms = 'all'; f.status = 'all'; f.extra = ''; f.extraVal = ''; }
+    else if (k === 'new') { f.newOnly = !card.classList.contains('active'); f.att = 'all'; f.sms = 'all'; f.status = 'all'; }
+    else if (k === 'att') { f.att = f.att === 'y' ? 'all' : 'y'; }
+    else if (k === 'natt') { f.att = f.att === 'n' ? 'all' : 'n'; }
+    else if (k === 'sms') { f.sms = f.sms === 'y' ? 'all' : 'y'; }
+    else if (k === 'nsms') { f.sms = f.sms === 'n' ? 'all' : 'n'; }
+    else if (k === 'cancel') { f.status = f.status === '취소' ? 'all' : '취소'; }
+    $('#fAtt').value = f.att; $('#fSms').value = f.sms; $('#fStatus').value = f.status;
+    $('#fExtra').value = f.extra === '' ? '' : String(f.extra);
+    syncExtraVal();
+    render();
+  });
+
+  // 정렬 / 전체 선택
+  $('#thead').addEventListener('click', function (e) {
+    if (e.target.id === 'chkAll') return;
+    var th = e.target.closest('[data-sort]');
+    if (!th) return;
+    var key = th.dataset.sort;
+    if (state.sort.key === key) state.sort.dir *= -1;
+    else state.sort = { key: key, dir: key === 'ts' ? -1 : 1 };
+    renderHead(); renderBody();
+  });
+  $('#thead').addEventListener('change', function (e) {
+    if (e.target.id !== 'chkAll') return;
+    var on = e.target.checked;
+    visibleRows().forEach(function (r) {
+      if (on) state.selected.add(r.uid); else state.selected.delete(r.uid);
+    });
+    render();
+  });
+
+  // 표 상호작용
+  var tbody = $('#tbody');
+
+  tbody.addEventListener('click', function (e) {
+    var t = e.target;
+    var open = t.closest('[data-open]');
+    if (open) { openDrawer(open.dataset.open); return; }
+    var pill = t.closest('[data-toggle]');
+    if (pill) {
+      var uid = pill.dataset.uid, key = pill.dataset.toggle;
+      applyPatch(uid, defineToggle(key, !adminOf(uid)[key]));
+      renderStats(); renderBody();
+      return;
+    }
+    if (t.closest('input,select,textarea,button,a')) return;
+    var tr = t.closest('[data-row]');
+    if (tr) openDrawer(tr.dataset.row);
+  });
+
+  tbody.addEventListener('change', function (e) {
+    var chk = e.target.closest('[data-sel]');
+    if (chk) {
+      if (chk.checked) state.selected.add(chk.dataset.sel);
+      else state.selected.delete(chk.dataset.sel);
+      chk.closest('tr').classList.toggle('sel', chk.checked);
+      renderHead(); renderBulk();
+      return;
+    }
+    var st = e.target.closest('[data-status]');
+    if (st) {
+      applyPatch(st.dataset.uid, { status: st.value });
+      st.dataset.v = st.value;
+      renderStats(); renderBody();
+    }
+  });
+
+  var memoTimers = {};
+  tbody.addEventListener('input', function (e) {
+    var ta = e.target.closest('[data-memo]');
+    if (!ta) return;
+    autosize(ta);
+    var uid = ta.dataset.uid, val = ta.value;
+    clearTimeout(memoTimers[uid]);
+    memoTimers[uid] = setTimeout(function () {
+      applyPatch(uid, { memo: val });
+      ta.classList.toggle('filled', !!val);
+    }, 450);
+  });
+
+  // 일괄 처리
+  $('#bulk').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-bulk]');
+    if (b) bulk(b.dataset.bulk);
+  });
+
+  // 빈 상태의 필터 초기화
+  $('#empty').addEventListener('click', function (e) {
+    if (!e.target.closest('[data-clear-filters]')) return;
+    state.filters = { q: '', att: 'all', sms: 'all', status: 'all', extra: '', extraVal: '', newOnly: false };
+    $('#q').value = ''; $('#qClear').hidden = true;
+    $('#fAtt').value = 'all'; $('#fSms').value = 'all'; $('#fStatus').value = 'all'; $('#fExtra').value = '';
+    syncExtraVal(); render();
+  });
+
+  // 상세 패널
+  $('#dClose').addEventListener('click', closeDrawer);
+  $('#scrim').addEventListener('click', closeDrawer);
+  $('#dBody').addEventListener('click', function (e) {
+    var cp = e.target.closest('[data-copy]');
+    if (cp) {
+      copyText(cp.dataset.copy).then(function () { toast('복사했습니다: ' + cp.dataset.copy); });
+      return;
+    }
+    var pill = e.target.closest('[data-toggle]');
+    if (pill) {
+      var uid = pill.dataset.uid, key = pill.dataset.toggle;
+      applyPatch(uid, defineToggle(key, !adminOf(uid)[key]));
+      renderStats(); renderBody(); openDrawer(uid);
+    }
+  });
+  $('#dBody').addEventListener('change', function (e) {
+    var st = e.target.closest('[data-status]');
+    if (st) { applyPatch(st.dataset.uid, { status: st.value }); st.dataset.v = st.value; renderStats(); renderBody(); }
+  });
+  var dMemoTimer;
+  $('#dBody').addEventListener('input', function (e) {
+    var ta = e.target.closest('[data-memo]');
+    if (!ta) return;
+    var uid = ta.dataset.uid, val = ta.value;
+    clearTimeout(dMemoTimer);
+    dMemoTimer = setTimeout(function () { applyPatch(uid, { memo: val }); renderBody(); }, 450);
+  });
+
+  // 모달 공통
+  $$('.modal').forEach(function (m) {
+    m.addEventListener('click', function (e) {
+      if (e.target === m || e.target.closest('[data-close]')) m.classList.remove('show');
+    });
+  });
+  $$('.mode').forEach(function (b) {
+    b.addEventListener('click', function () { setModeUI(b.dataset.mode); });
+  });
+  $('#btnSaveCfg').addEventListener('click', saveSettings);
+  $('#btnTest').addEventListener('click', testConnection);
+  $('#btnSettings').addEventListener('click', openSettings);
+
+  $('#colList').addEventListener('change', function (e) {
+    var c = e.target.closest('[data-col]');
+    if (!c) return;
+    var i = Number(c.dataset.col);
+    var at = state.cols.indexOf(i);
+    if (c.checked && at < 0) state.cols.push(i);
+    if (!c.checked && at >= 0) state.cols.splice(at, 1);
+    if (!state.cols.length) { state.cols.push(i); c.checked = true; toast('최소 한 개의 열은 표시해야 합니다.', true); }
+    state.cols.sort(function (a, b) { return a - b; });
+    lsSet(LS.cols + sourceKey(), state.cols);
+    renderHead(); renderBody();
+  });
+  $('#btnCols').addEventListener('click', openCols);
+
+  // 상단 버튼
+  $('#btnRefresh').addEventListener('click', function () { load(); });
+  $('#btnExport').addEventListener('click', exportCsv);
+  $('#btnPrint').addEventListener('click', function () { window.print(); });
+  $('#btnTheme').addEventListener('click', function () {
+    var next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    lsSet(LS.theme, next);
+  });
+
+  // 단축키
+  document.addEventListener('keydown', function (e) {
+    var tag = (e.target.tagName || '').toLowerCase();
+    var typing = tag === 'input' || tag === 'textarea' || tag === 'select';
+    if (e.key === 'Escape') {
+      closeDrawer();
+      $$('.modal.show').forEach(function (m) { m.classList.remove('show'); });
+      if (typing) e.target.blur();
+      return;
+    }
+    if (typing) return;
+    if (e.key === '/') { e.preventDefault(); $('#q').focus(); }
+    if (e.key === 'r' || e.key === 'R') { load(); }
+  });
+
+  // 창을 닫기 전 저장 대기분을 확실히 전송 (확인 대화상자 없이)
+  window.addEventListener('pagehide', flushOnExit);
+  window.addEventListener('beforeunload', flushOnExit);
+
+  // 탭이 다시 활성화되면 즉시 갱신
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && state.cfg.mode !== 'demo') load(true);
+  });
+}
+
+function flushOnExit() {
+  var items = [];
+  for (var uid in state.pending) items.push({ uid: uid, patch: state.pending[uid] });
+  if (!items.length || state.cfg.mode !== 'api') return;
+  var body = JSON.stringify({ action: 'saveMany', token: state.cfg.token || '', items: items });
+  try {
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(state.cfg.apiUrl.trim(), new Blob([body], { type: 'text/plain;charset=utf-8' }));
+      state.pending = {};
+      return;
+    }
+  } catch (e) { /* 아래 fetch 로 대체 */ }
+  flushSave();
+}
+
+function defineToggle(key, val) {
+  var o = {};
+  o[key] = val;
+  return o;
+}
+
+/* ------------------------------ 시작 ------------------------------ */
+function init() {
+  document.documentElement.dataset.theme = lsGet(LS.theme, 'light');
+  state.cfg = loadCfg();
+  state.filters.newOnly = false;
+  bindEvents();
+  $('#inInterval').value = state.cfg.interval;
+  load().then(function () {
+    if (state.cfg.mode === 'demo') {
+      setTimeout(function () {
+        toast('지금은 샘플 데이터입니다. 설정에서 구글 시트를 연결하세요.');
+      }, 700);
+    }
+  });
+}
+
+init();
+</script>
+</body>
+</html>
