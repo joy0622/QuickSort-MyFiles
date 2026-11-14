@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>말풍선 프로젝터</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- 동글동글한 글꼴(Jua). 인터넷이 없으면 컴퓨터에 있는 글꼴로 자동으로 바뀌어요. -->
+<link id="fontSheet" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&display=swap" media="print" onload="this.media='all';window.onFontSheet&&window.onFontSheet()">
+<style>
+[hidden]{display:none!important}
+:root{--bg:#000;--panel:rgba(20,22,30,.94);--line:rgba(255,255,255,.14);--text:#f4f5f9;--muted:#a4a9ba;--accent:#ffd43b;--blue:#4dabf7;--red:#ff6b6b;
+  --ui:"Apple SD Gothic Neo","Malgun Gothic","맑은 고딕","Noto Sans KR",system-ui,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--ui);-webkit-tap-highlight-color:transparent}
+#app{position:fixed;inset:0;display:flex;flex-direction:column}
+.bar{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--panel);flex-wrap:wrap}
+#toolbar{border-bottom:1px solid var(--line)}
+#filmstrip{border-top:1px solid var(--line);flex-wrap:nowrap}
+.title{font-size:20px;font-weight:800;margin-right:auto;white-space:nowrap;letter-spacing:-.02em}
+.sep{width:1px;align-self:stretch;background:var(--line);margin:4px 2px}
+.btn{appearance:none;border:1px solid var(--line);background:rgba(255,255,255,.08);color:var(--text);border-radius:12px;padding:8px 14px;font:700 17px/1.1 var(--ui);min-height:48px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;transition:background .15s,transform .05s;user-select:none;-webkit-user-select:none}
+.btn:hover{background:rgba(255,255,255,.17)}
+.btn:active{transform:translateY(1px)}
+.btn:disabled{opacity:.35;cursor:default;pointer-events:none}
+.btn:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+.btn.primary{background:var(--accent);color:#1d1a0b;border-color:transparent}
+.btn.primary:hover{background:#ffe066}
+.btn.on{background:var(--blue);color:#06121e;border-color:transparent}
+.btn.danger:hover{background:rgba(255,107,107,.3)}
+.btn .ico{font-size:21px;line-height:1}
+.btn.xl{font-size:22px;padding:14px 26px;min-height:64px;border-radius:16px}
+#stage{position:relative;flex:1;min-height:0;overflow:hidden;touch-action:none}
+#view{position:absolute;inset:0;width:100%;height:100%;display:block}
+#empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;gap:6px}
+#empty .big{font-size:96px;line-height:1}
+#empty h1{font-size:clamp(26px,4vw,46px);margin:12px 0 4px;letter-spacing:-.03em}
+#empty p{font-size:clamp(16px,1.8vw,22px);color:var(--muted);margin:4px 0}
+#empty .row{display:flex;gap:14px;margin:22px 0 10px;flex-wrap:wrap;justify-content:center}
+kbd{display:inline-block;border:1px solid var(--line);border-bottom-width:3px;border-radius:6px;padding:1px 7px;font:700 .9em var(--ui);background:rgba(255,255,255,.06);color:var(--text)}
+#editor{position:absolute;z-index:5;resize:none;border:none;outline:4px solid var(--blue);border-radius:12px;padding:0;margin:0;text-align:center;color:#141414;background:#fff;overflow:hidden;white-space:pre-wrap;word-break:keep-all;box-shadow:0 0 0 9999px rgba(0,0,0,.3)}
+#bubblebar{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);z-index:6;display:flex;gap:6px;padding:8px;background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.5);transition:opacity .3s}
+#thumbs{flex:1;display:flex;gap:8px;overflow-x:auto;padding:2px;min-width:0;scrollbar-width:thin}
+#thumbs img{height:56px;width:auto;border-radius:8px;border:3px solid transparent;cursor:pointer;opacity:.6;flex:none;background:#222}
+#thumbs img.active{border-color:var(--accent);opacity:1}
+#counter{font-weight:800;font-size:18px;min-width:70px;text-align:center;color:var(--muted)}
+body.present #toolbar,body.present #filmstrip{position:fixed;left:0;right:0;z-index:20;transition:opacity .35s}
+body.present #toolbar{top:0}
+body.present #filmstrip{bottom:0}
+body.present #bubblebar{bottom:96px}
+body.present.idle #toolbar,body.present.idle #filmstrip,body.present.idle #bubblebar{opacity:0;pointer-events:none}
+body.present.idle,body.present.idle #view{cursor:none}
+.overlay{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.8)}
+#camera{background:#000;flex-direction:column}
+#video{flex:1;min-height:0;width:100%;object-fit:contain;background:#000}
+#flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .45s}
+#flash.go{opacity:.9;transition:none}
+#camera .bar{width:100%;justify-content:center;border-top:1px solid var(--line)}
+select.btn{max-width:340px}
+.sheet{width:min(760px,94vw);max-height:92vh;overflow:auto;background:#191c25;border:1px solid var(--line);border-radius:20px;padding:22px 24px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.sheet h2{margin:0 0 14px;font-size:26px}
+.field{display:flex;flex-direction:column;gap:6px;font-weight:700;font-size:16px}
+.field>span{color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin:16px 0}
+.sheet textarea{width:100%;font:500 18px/1.5 var(--ui);background:#0f1117;color:var(--text);border:1px solid var(--line);border-radius:12px;padding:10px 12px;resize:vertical;margin-top:8px}
+.sheet select{font:600 17px var(--ui);background:#0f1117;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px}
+.sheet input[type=range]{width:100%}
+.note{color:var(--muted);font-size:14px;margin:6px 0 0;line-height:1.5}
+.check{flex-direction:row;align-items:center;gap:10px}
+.check input{width:22px;height:22px;flex:none}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;font-size:15px;margin-top:12px;align-items:center}
+details summary{cursor:pointer;font-weight:700;color:var(--muted)}
+.row.end{display:flex;justify-content:flex-end;margin-top:18px}
+#toast{position:fixed;top:84px;left:50%;transform:translate(-50%,-10px);z-index:70;background:rgba(15,17,23,.96);border:1px solid var(--line);color:var(--text);padding:12px 20px;border-radius:14px;font-weight:700;font-size:17px;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+#drophint{position:fixed;inset:16px;z-index:60;border:5px dashed var(--accent);border-radius:28px;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;font-size:clamp(28px,5vw,56px);font-weight:800;pointer-events:none}
+@media (max-width:1180px){#toolbar .label,#filmstrip .label,#bubblebar .label{display:none}}
+@media (max-width:640px){.title{display:none}.btn{padding:8px 10px}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="toolbar" class="bar">
+    <div class="title">💬 말풍선 프로젝터</div>
+    <button class="btn primary" data-act="open" title="사진 파일 올리기 (O)"><span class="ico">📁</span><span class="label">사진 올리기</span></button>
+    <button class="btn primary" data-act="camera" title="카메라로 찍기 (C)"><span class="ico">📷</span><span class="label">카메라로 찍기</span></button>
+    <span class="sep"></span>
+    <button class="btn" data-act="reroll" data-need="slide" title="말풍선 새로 붙이기 (R)"><span class="ico">🔄</span><span class="label">다시 붙이기</span></button>
+    <button class="btn" data-act="add" data-need="slide" title="말풍선 하나 더 (B)"><span class="ico">➕</span><span class="label">말풍선 추가</span></button>
+    <span class="sep"></span>
+    <button class="btn" data-act="present" id="presentBtn" title="빔프로젝터용 전체 화면 (F)"><span class="ico">🖥️</span><span class="label" id="presentLabel">크게 보기</span></button>
+    <button class="btn" data-act="save" data-need="slide" title="말풍선 붙은 그림 저장 (S)"><span class="ico">💾</span><span class="label">저장</span></button>
+    <button class="btn" data-act="settings" title="문구·글자 크기 설정"><span class="ico">⚙️</span><span class="label">설정</span></button>
+  </header>
+
+  <main id="stage">
+    <canvas id="view"></canvas>
+    <div id="empty">
+      <div class="big">💬</div>
+      <h1>그림을 올리면 말풍선이 저절로 붙어요</h1>
+      <p>사진 파일을 이 화면에 끌어다 놓거나, 아래 버튼을 눌러 주세요.</p>
+      <div class="row">
+        <button class="btn primary xl" data-act="open">📁 사진 올리기</button>
+        <button class="btn primary xl" data-act="camera">📷 카메라로 찍기</button>
+      </div>
+      <p>실물화상기나 웹캠도 카메라 목록에서 고를 수 있어요.</p>
+      <p><kbd>F</kbd> 크게 보기 · <kbd>Ctrl</kbd>+<kbd>V</kbd> 붙여넣기 · 말풍선은 끌어서 옮기고, 두 번 누르면 글을 고쳐요</p>
+    </div>
+    <textarea id="editor" hidden spellcheck="false" aria-label="말풍선 글"></textarea>
+    <div id="bubblebar" hidden>
+      <button class="btn" data-act="edit" title="글 고치기 (E, 말풍선 두 번 누르기)">✏️<span class="label">글 고치기</span></button>
+      <button class="btn" data-act="dice" title="다른 말로 바꾸기 (D)">🎲<span class="label">다른 말</span></button>
+      <button class="btn" data-act="style" title="모양 바꾸기 (T)"><span id="styleLabel">💬 말풍선</span></button>
+      <button class="btn" data-act="smaller" title="글자 작게 (−)">A−</button>
+      <button class="btn" data-act="bigger" title="글자 크게 (+)">A+</button>
+      <button class="btn danger" data-act="del" title="이 말풍선 지우기 (Delete)">🗑️<span class="label">지우기</span></button>
+    </div>
+  </main>
+
+  <footer id="filmstrip" class="bar" hidden>
+    <button class="btn" data-act="prev" data-need="many" title="이전 사진 (←)">◀</button>
+    <div id="thumbs"></div>
+    <button class="btn" data-act="next" data-need="many" title="다음 사진 (→, Space)">▶</button>
+    <span id="counter"></span>
+    <button class="btn" data-act="play" data-need="many" id="playBtn" title="자동 넘김 (P)"><span id="playIco">⏯️</span><span class="label" id="playLabel">자동 넘김</span></button>
+    <button class="btn" data-act="hide" id="hideBtn" title="말풍선 숨기기 / 보이기 (H)"><span id="hideIco">🙈</span><span class="label" id="hideLabel">말풍선 숨기기</span></button>
+    <button class="btn danger" data-act="removeSlide" title="이 사진을 목록에서 빼기 (원본 파일은 그대로예요)">🗑️<span class="label">사진 빼기</span></button>
+  </footer>
+</div>
+
+<div id="camera" class="overlay" hidden>
+  <video id="video" playsinline muted autoplay></video>
+  <div id="flash"></div>
+  <div class="bar">
+    <select id="camSel" class="btn" title="카메라 고르기"></select>
+    <label class="btn"><input type="checkbox" id="mirrorChk"> 좌우 반전</label>
+    <button class="btn primary xl" data-act="shoot">📸 찍기 <small style="font-size:14px;opacity:.7">(Space)</small></button>
+    <button class="btn" data-act="closeCamera">✖ 닫기</button>
+  </div>
+</div>
+
+<div id="settings" class="overlay" hidden>
+  <div class="sheet" role="dialog" aria-label="설정">
+    <h2>⚙️ 설정</h2>
+    <label class="field"><span>말풍선 문구 모음</span><select id="presetSel"></select></label>
+    <textarea id="phrases" rows="9" spellcheck="false" aria-label="말풍선 문구"></textarea>
+    <p class="note">한 줄에 한 문장씩 적어 주세요. 사진을 올릴 때마다 이 중에서 골라 붙여요.<br>문장에 “…”이 있으면 💭 생각 풍선, “!!”이나 “최고·대박”이 있으면 💥 외침 풍선으로 붙어요.</p>
+    <div class="grid">
+      <label class="field"><span>사진 한 장에 붙일 말풍선</span>
+        <select id="countSel"><option value="1">1개</option><option value="2">2개</option><option value="3">3개</option></select></label>
+      <label class="field"><span>글자 크기 <b id="fontVal"></b></span><input type="range" id="fontRange" min="0.6" max="2" step="0.1"></label>
+      <label class="field"><span>바탕색</span>
+        <select id="bgSel"><option value="#000000">검정 (빔프로젝터 추천)</option><option value="#1e2230">진회색</option><option value="#ffffff">흰색</option></select></label>
+      <label class="field"><span>자동 넘김 간격</span>
+        <select id="intervalSel"><option value="3">3초</option><option value="5">5초</option><option value="8">8초</option><option value="12">12초</option><option value="20">20초</option></select></label>
+    </div>
+    <label class="field check"><input type="checkbox" id="faceChk"><span>사진 속 사람 얼굴을 찾아 꼬리 맞추기 <small id="faceNote"></small></span></label>
+    <details style="margin-top:16px"><summary>⌨️ 단축키 보기</summary>
+      <div class="keys">
+        <kbd>O</kbd><span>사진 파일 올리기 (끌어다 놓기, Ctrl+V 붙여넣기도 돼요)</span>
+        <kbd>C</kbd><span>카메라 열기 → <kbd>Space</kbd>로 찍기</span>
+        <kbd>F</kbd><span>크게 보기 (빔프로젝터 전체 화면)</span>
+        <kbd>← →</kbd><span>이전 / 다음 사진 (<kbd>Space</kbd>도 다음)</span>
+        <kbd>R</kbd><span>말풍선 다시 붙이기</span>
+        <kbd>B</kbd><span>말풍선 하나 더 (빈 곳을 두 번 누르면 그곳을 가리키는 말풍선)</span>
+        <kbd>H</kbd><span>말풍선 숨기기 / 짠! 보이기</span>
+        <kbd>P</kbd><span>자동 넘김 켜기 / 끄기</span>
+        <kbd>S</kbd><span>말풍선 붙은 그림 저장 (PNG)</span>
+        <kbd>E</kbd><span>고른 말풍선 글 고치기 (두 번 눌러도 돼요)</span>
+        <kbd>D</kbd><span>고른 말풍선 다른 말로</span>
+        <kbd>T</kbd><span>고른 말풍선 모양 바꾸기 (말풍선 → 생각 → 외침 → 글상자)</span>
+        <kbd>+ −</kbd><span>글자 크게 / 작게 (고른 말풍선이 없으면 전체)</span>
+        <kbd>Delete</kbd><span>고른 말풍선 지우기</span>
+      </div>
+    </details>
+    <div class="row end"><button class="btn primary" data-act="closeSettings">닫기</button></div>
+  </div>
+</div>
+
+<div id="drophint" hidden>📥 여기에 놓으면 바로 올라가요</div>
+<div id="toast" role="status" aria-live="polite"></div>
+<input type="file" id="fileInput" accept="image/*" multiple hidden>
+<input type="file" id="captureInput" accept="image/*" capture="environment" hidden>
+
+<script>
+(() => {
+'use strict';
+
+/* ================= 기본 값 ================= */
+const $ = (s) => document.querySelector(s);
+const FONT_STACK = '"Jua", "Apple SD Gothic Neo", "Malgun Gothic", "맑은 고딕", "Noto Sans KR", sans-serif';
+const MAX_SIDE = 2560;              // 너무 큰 사진은 이 크기로 줄여서 다뤄요
+const INK = '#141414';
+const STYLES = ['speech', 'thought', 'shout', 'box'];
+const STYLE_LABEL = { speech: '💬 말풍선', thought: '💭 생각', shout: '💥 외침', box: '🏷️ 글상자' };
+const FILL = { speech: '#ffffff', thought: '#ffffff', shout: '#ffe14d', box: '#fff6c9' };
+
+const PRESETS = {
+  fun: { name: '재미있는 말', lines: [
+    '안녕! 나 멋지지?', '오늘 기분 최고야!', '나를 그려 줘서 고마워!', '짜잔! 내가 왔다!',
+    '우리 같이 놀래?', '배고파… 간식 시간 아직이야?', '비밀인데… 나 사실 춤 잘 춰!',
+    '여기 좀 봐 줄래?', '우와, 신난다!!', '오늘 날씨 정말 좋다~', '나 지금 사진 찍히는 중이야?',
+    '음… 뭐라고 말하지?' ] },
+  praise: { name: '칭찬하는 말', lines: [
+    '색칠 정말 꼼꼼하다!', '상상력 대박!!', '이 표정 너무 마음에 들어!', '선이 정말 힘차다!',
+    '색깔 고르는 솜씨 최고!', '이 그림, 전시해야 해!', '끝까지 그린 거 멋져!', '보기만 해도 기분 좋아져!' ] },
+  intro: { name: '발표·소개', lines: [
+    '안녕하세요! 반가워요!', '제 그림을 소개할게요!', '제가 제일 좋아하는 걸 그렸어요.',
+    '잘 봐 주세요!', '어때요? 마음에 드나요?', '궁금한 게 있으면 물어봐 주세요!' ] },
+};
+
+const DEFAULTS = { preset: 'fun', phrases: PRESETS.fun.lines.join('\n'), count: 1, fontScale: 1,
+  bg: '#000000', interval: 5, useFace: true, mirror: false, camId: '' };
+const STORE_KEY = 'bubbleProjector.v1';
+const settings = Object.assign({}, DEFAULTS);
+try { Object.assign(settings, JSON.parse(localStorage.getItem(STORE_KEY) || '{}')); } catch (e) { /* 저장소를 못 쓰는 환경 */ }
+function saveSettings() { try { localStorage.setItem(STORE_KEY, JSON.stringify(settings)); } catch (e) {} }
+
+/* ================= 상태 ================= */
+const slides = [];      // {id, name, src(canvas), w, h, thumb, analysis, faces, bubbles[]}
+let cur = -1;
+let selId = 0;
+let uid = 1;
+let present = false, idle = false, hideBubbles = false;
+let editing = null;     // {b, orig}
+let drag = null;
+let playTimer = 0;
+const view = { css: 1, ox: 0, oy: 0 };
+
+const stage = $('#stage'), canvas = $('#view'), vctx = canvas.getContext('2d');
+const editor = $('#editor'), camEl = $('#camera'), setEl = $('#settings');
+const video = $('#video'), fileInput = $('#fileInput'), captureInput = $('#captureInput');
+const mctx = document.createElement('canvas').getContext('2d');   // 글자 너비 재기용
+
+/* ================= 작은 도구들 ================= */
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function easeOutBack(p) { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2); }
+let toastT = 0;
+function toast(msg, ms = 2600) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms); }
+const slide = () => slides[cur] || null;
+const selBubble = () => { const s = slide(); return s ? s.bubbles.find(b => b.id === selId) || null : null; };
+
+/* ================= 글꼴 ================= */
+let juaReady = false;
+const fontStr = (px) => `${juaReady ? '' : 'bold '}${px}px ${FONT_STACK}`;
+window.onFontSheet = () => {
+  if (!document.fonts || !document.fonts.load) return;
+  document.fonts.load('40px "Jua"', '가나다').then(list => {
+    if (list && list.length && !juaReady) { juaReady = true; slides.forEach(s => s.bubbles.forEach(b => clampBubble(s, b))); draw(); }
+  }).catch(() => {});
+};
+if ($('#fontSheet').media === 'all') window.onFontSheet();
+
+/* ================= 문구 ================= */
+const phraseList = () => settings.phrases.split('\n').map(s => s.trim()).filter(Boolean);
+let bag = [];
+function nextPhrase(avoid) {
+  const list = phraseList();
+  if (!list.length) return '안녕!';
+  for (let i = 0; i < 4; i++) {
+    if (!bag.length) bag = shuffle(list.slice());
+    const p = bag.pop();
+    if (p !== avoid || list.length === 1) return p;
+  }
+  return list[0];
+}
+function styleFor(text) {
+  if (/…|\.\.\.|^음/.test(text)) return 'thought';
+  if (/!!|대박|최고/.test(text)) return 'shout';
+  return 'speech';
+}
+function makeBubble(text, style) {
+  return { id: uid++, text, style: style || styleFor(text), autoStyle: !style, x: 0, y: 0, tx: 0, ty: 0,
+    scale: 1, seed: (Math.random() * 1e9) | 0, born: performance.now() };
+}
+
+/* ================= 말풍선 크기 계산 ================= */
+function wrapText(text, maxW) {
+  const width = (s) => mctx.measureText(s).width;
+  const out = [];
+  for (const para of text.split('\n')) {
+    const words = para.split(/\s+/).filter(Boolean);
+    if (!words.length) { out.push(''); continue; }
+    let line = '';
+    for (const w of words) {
+      const cand = line ? line + ' ' + w : w;
+      if (width(cand) <= maxW) { line = cand; continue; }
+      if (line) { out.push(line); line = ''; }
+      if (width(w) <= maxW) { line = w; continue; }
+      let chunk = '';                                    // 아주 긴 낱말은 글자 단위로 끊어요
+      for (const ch of Array.from(w)) {
+        if (chunk && width(chunk + ch) > maxW) { out.push(chunk); chunk = ch; } else chunk += ch;
+      }
+      line = chunk;
+    }
+    if (line) out.push(line);
+  }
+  return out.length ? out : [''];
+}
+
+function layout(s, b) {
+  const fs = Math.max(s.w, s.h) * 0.042 * settings.fontScale * b.scale;
+  const key = `${b.text}|${fs.toFixed(2)}|${b.style}|${juaReady}|${s.w}`;
+  if (b._lk === key) return b._lay;
+  mctx.font = fontStr(fs);
+  const lh = fs * 1.22;
+  const isBox = b.style === 'box';
+  const maxW = Math.min(s.w * (isBox ? 0.8 : 0.62), fs * (isBox ? 14 : 9.5));
+  const target = isBox ? 6 : 2.6;                      // 글 덩어리의 가로:세로 비율 목표
+  const text = b.text.trim() ? b.text : ' ';
+  let best = null;
+  for (let f = 0.35; f <= 1.0001; f += 0.05) {
+    const lines = wrapText(text, maxW * f);
+    let tw = 0;
+    for (const ln of lines) tw = Math.max(tw, mctx.measureText(ln).width);
+    tw = Math.max(tw, fs * 0.8);
+    const th = lines.length * lh;
+    const score = Math.abs(Math.log((tw / th) / target)) + Math.max(0, lines.length - 4) * 0.6 + (tw > maxW * 1.001 ? 3 : 0);
+    if (!best || score < best.score - 1e-6) best = { score, lines, tw, th };
+  }
+  const { tw, th } = best;
+  const lw = Math.max(2, fs * 0.11);
+  let rx, ry, ex, ey;
+  if (isBox) { rx = tw / 2 + fs * 0.75; ry = th / 2 + fs * 0.5; ex = rx + lw; ey = ry + lw; }
+  else {
+    rx = tw / 2 * 1.28 + fs * 0.65; ry = th / 2 * 1.3 + fs * 0.55;
+    const extra = b.style === 'shout' ? fs * 0.95 : b.style === 'thought' ? fs * 0.5 : 0;
+    ex = rx + extra + lw; ey = ry + extra + lw;
+  }
+  b._lay = { fs, lh, lines: best.lines, tw, th, rx, ry, ex, ey, lw };
+  b._lk = key;
+  return b._lay;
+}
+
+function clampBubble(s, b) {
+  const L = layout(s, b);
+  b.x = s.w > 2 * L.ex ? clamp(b.x, L.ex, s.w - L.ex) : s.w / 2;
+  b.y = s.h > 2 * L.ey ? clamp(b.y, L.ey, s.h - L.ey) : s.h / 2;
+}
+
+/* ================= 그림 분석: 어디가 비어 있고, 누가 말하는지 ================= */
+function blur(a, w, h) {
+  const o = new Float32Array(a.length);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let sum = 0, c = 0;
+    for (let dy = -1; dy <= 1; dy++) { const yy = y + dy; if (yy < 0 || yy >= h) continue;
+      for (let dx = -1; dx <= 1; dx++) { const xx = x + dx; if (xx < 0 || xx >= w) continue; sum += a[yy * w + xx]; c++; } }
+    o[y * w + x] = sum / c;
+  }
+  return o;
+}
+function normalizeP98(a, floor) {
+  const sorted = Float32Array.from(a).sort();
+  const p = Math.max(sorted[Math.floor(sorted.length * 0.98)] || 0, floor);
+  for (let i = 0; i < a.length; i++) a[i] = Math.min(1, a[i] / p);
+}
+function scaleMax(a, floor) { let m = floor; for (const v of a) if (v > m) m = v; for (let i = 0; i < a.length; i++) a[i] /= m; }
+
+function analyze(s) {
+  const G = 96, k = G / Math.max(s.w, s.h);
+  const gw = Math.max(4, Math.round(s.w * k)), gh = Math.max(4, Math.round(s.h * k)), n = gw * gh;
+  const c = document.createElement('canvas'); c.width = gw; c.height = gh;
+  const x = c.getContext('2d', { willReadFrequently: true });
+  x.drawImage(s.src, 0, 0, gw, gh);
+  const d = x.getImageData(0, 0, gw, gh).data;
+  // 가장 많이 쓰인 색 = 바탕(도화지)색으로 봐요
+  const cnt = new Uint32Array(512), sr = new Float64Array(512), sg = new Float64Array(512), sb = new Float64Array(512);
+  for (let i = 0; i < n; i++) { const j = i * 4, q = ((d[j] >> 5) << 6) | ((d[j + 1] >> 5) << 3) | (d[j + 2] >> 5); cnt[q]++; sr[q] += d[j]; sg[q] += d[j + 1]; sb[q] += d[j + 2]; }
+  let bq = 0; for (let q = 1; q < 512; q++) if (cnt[q] > cnt[bq]) bq = q;
+  const br = sr[bq] / cnt[bq], bgc = sg[bq] / cnt[bq], bb = sb[bq] / cnt[bq];
+  const lum = new Float32Array(n), diff = new Float32Array(n), edge = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const j = i * 4, r = d[j], g = d[j + 1], b = d[j + 2];
+    lum[i] = 0.299 * r + 0.587 * g + 0.114 * b;
+    diff[i] = Math.hypot(r - br, g - bgc, b - bb) / 441.7;
+  }
+  for (let y = 1; y < gh - 1; y++) for (let xx = 1; xx < gw - 1; xx++) {
+    const i = y * gw + xx;
+    const gx = lum[i - gw + 1] + 2 * lum[i + 1] + lum[i + gw + 1] - lum[i - gw - 1] - 2 * lum[i - 1] - lum[i + gw - 1];
+    const gy = lum[i + gw - 1] + 2 * lum[i + gw] + lum[i + gw + 1] - lum[i - gw - 1] - 2 * lum[i - gw] - lum[i - gw + 1];
+    edge[i] = Math.hypot(gx, gy) / 1020;
+  }
+  normalizeP98(diff, 0.12); normalizeP98(edge, 0.08);
+  // 한 가지 색이 넓게 깔려 있으면(도화지) 바탕색과 다른 곳 = 그림. 사진이면 윤곽선만 믿어요
+  const paper = cnt[bq] / n > 0.3;
+  const wd = paper ? 0.6 : 0.12;
+  let busy = new Float32Array(n), ink = new Float32Array(n);
+  for (let i = 0; i < n; i++) { busy[i] = wd * diff[i] + (1 - wd) * edge[i]; ink[i] = 0.7 * edge[i] + 0.3 * diff[i]; }
+  busy = blur(busy, gw, gh); ink = blur(ink, gw, gh);   // 가는 선도 사라지지 않게 한 번만 흐리게
+  scaleMax(busy, 0.25); scaleMax(ink, 0.25);
+  return { gw, gh, sx: s.w / gw, sy: s.h / gh, busy, ink };
+}
+
+async function detectFaces(s) {
+  if (!settings.useFace || !('FaceDetector' in window)) return [];
+  try {
+    const fd = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 6 });
+    const faces = await fd.detect(s.src);
+    return faces.map(f => ({ x: f.boundingBox.x, y: f.boundingBox.y, w: f.boundingBox.width, h: f.boundingBox.height }))
+      .filter(f => f.w * f.h > s.w * s.h * 0.002).sort((a, b) => b.w * b.h - a.w * a.h);
+  } catch (e) { return []; }
+}
+
+function massRange(arr, tot, lo, hi) {
+  let acc = 0, a = 0, b = arr.length - 1, found = false;
+  for (let i = 0; i < arr.length; i++) {
+    acc += arr[i];
+    if (!found && acc >= tot * lo) { a = i; found = true; }
+    if (acc >= tot * hi) { b = i; break; }
+  }
+  return [a, b];
+}
+
+// 그림에서 "말하는 쪽"(주인공 머리쯤)을 n군데 찾아요
+function contentAnchors(s, n) {
+  const A = s.analysis, { gw, gh } = A, M = A.ink;
+  const sorted = Float32Array.from(M).sort();
+  const thr = Math.max(0.1, sorted[Math.floor(sorted.length * 0.95)] * 0.4);
+  const col = new Float32Array(gw); let tot = 0;
+  for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) { const v = M[y * gw + x]; if (v > thr) { col[x] += v; tot += v; } }
+  const fallback = [{ x: s.w / 2, y: s.h * 0.42 }];
+  if (tot < 1e-3) return fallback;
+  const [x0, x1] = massRange(col, tot, 0.03, 0.97);
+  const out = [];
+  for (let k = 0; k < n; k++) {
+    const a = Math.floor(x0 + (x1 - x0 + 1) * k / n);
+    const e = Math.max(a + 1, Math.floor(x0 + (x1 - x0 + 1) * (k + 1) / n));
+    const row = new Float32Array(gh); let st = 0;
+    for (let y = 0; y < gh; y++) for (let x = a; x < e; x++) { const v = M[y * gw + x]; if (v > thr) { row[y] += v; st += v; } }
+    if (st < 1e-3 || (out.length && st < tot * 0.06 / n)) continue;
+    const [y0, y1] = massRange(row, st, 0.04, 0.96);
+    const band = Math.min(gh - 1, Math.ceil(y0 + Math.max(1, (y1 - y0) * 0.35)));
+    // 윗부분에서 가장 진한 세로줄 = 머리 위치로 봐요
+    const prof = new Float32Array(e - a);
+    for (let y = y0; y <= band; y++) for (let x = a; x < e; x++) { const v = M[y * gw + x]; if (v > thr) prof[x - a] += v; }
+    let bx = 0, bv = -1;
+    for (let i = 0; i < prof.length; i++) { const v = (prof[i - 1] || 0) + 2 * prof[i] + (prof[i + 1] || 0); if (v > bv) { bv = v; bx = i; } }
+    const ay = y0 + (y1 - y0) * 0.16;
+    out.push({ x: (a + bx + 0.5) * A.sx, y: (ay + 0.5) * A.sy });
+  }
+  return out.length ? out : fallback;
+}
+function findAnchors(s, n) {
+  if (s.faces && s.faces.length) return s.faces.slice(0, n).map(f => ({ x: f.x + f.w / 2, y: f.y + f.h * 0.75 }));
+  return contentAnchors(s, n);
+}
+
+function coverCost(A, cx, cy, rx, ry) {
+  const gcx = cx / A.sx, gcy = cy / A.sy, grx = rx / A.sx, gry = ry / A.sy;
+  const x0 = Math.max(0, Math.floor(gcx - grx)), x1 = Math.min(A.gw - 1, Math.ceil(gcx + grx));
+  const y0 = Math.max(0, Math.floor(gcy - gry)), y1 = Math.min(A.gh - 1, Math.ceil(gcy + gry));
+  let sum = 0, hi = 0, c = 0;
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    const dx = (x + 0.5 - gcx) / grx, dy = (y + 0.5 - gcy) / gry;
+    if (dx * dx + dy * dy <= 1) { const v = A.busy[y * A.gw + x]; sum += v; if (v > 0.3) hi++; c++; }
+  }
+  return c ? sum / c + 1.2 * hi / c : 0;   // 그린 선을 조금이라도 덮으면 비싸게
+}
+function overlap(a, b) {
+  const w = Math.min(a[2], b[2]) - Math.max(a[0], b[0]), h = Math.min(a[3], b[3]) - Math.max(a[1], b[1]);
+  return w > 0 && h > 0 ? w * h : 0;
+}
+const boxOf = (s, b) => { const L = layout(s, b); return [b.x - L.ex, b.y - L.ey, b.x + L.ex, b.y + L.ey]; };
+function range(a, b, n = 20) { if (b <= a) return [(a + b) / 2]; const o = []; for (let i = 0; i <= n; i++) o.push(a + (b - a) * i / n); return o; }
+
+// 몸통 밖으로 튀어나온 만큼(구름 혹, 외침 가시) / 꼬리가 또렷이 보이려면 필요한 거리
+const tailOut = (b, L) => b.style === 'shout' ? L.fs * 0.95 : b.style === 'thought' ? L.fs * 0.5 : 0;
+const minGap = (b, L) => tailOut(b, L) + L.fs * (b.style === 'thought' ? 1.6 : 0.9);
+function segPts(x0, y0, x1, y1, from, n = 8) {
+  const o = [];
+  for (let i = 0; i < n; i++) { const t = from + (1 - from) * i / (n - 1); o.push(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t); }
+  return o;
+}
+function ptsInBox(pts, bx) {
+  let c = 0;
+  for (let i = 0; i < pts.length; i += 2) if (pts[i] > bx[0] && pts[i] < bx[2] && pts[i + 1] > bx[1] && pts[i + 1] < bx[3]) c++;
+  return c / (pts.length / 2);
+}
+const obstacle = (s, b) => ({ box: boxOf(s, b), pts: segPts(b.x, b.y, b.tx, b.ty, 0.3) });
+
+// 그림을 최대한 덜 가리면서, 말하는 쪽 가까이에 말풍선을 놓아요
+//  others: 이미 있는 말풍선들(몸통·꼬리)  guard: 가리면 안 되는 다른 주인공 자리
+function placeBubble(s, b, anchor, others = [], guard = [], jitter = 0.05) {
+  const A = s.analysis, diag = Math.hypot(s.w, s.h);
+  let L = layout(s, b);
+  for (let i = 0; i < 6 && (L.ex * 2 > s.w * 0.96 || L.ey * 2 > s.h * 0.96); i++) { b.scale *= 0.85; L = layout(s, b); }
+  const m = Math.min(s.w, s.h) * 0.015, need = minGap(b, L);
+  let best = null;
+  for (const cx of range(L.ex + m, s.w - L.ex - m)) for (const cy of range(L.ey + m, s.h - L.ey - m)) {
+    let sc = coverCost(A, cx, cy, L.rx, L.ry) * 2.4;
+    const kk = Math.hypot((anchor.x - cx) / L.rx, (anchor.y - cy) / L.ry);
+    if (kk < 1.2) sc += 2 + (1.2 - kk) * 4;                     // 말하는 얼굴을 덮지 않게
+    const gap = kk > 1 ? Math.hypot(anchor.x - cx, anchor.y - cy) * (1 - 1 / kk) : 0;
+    sc += gap / diag * 3.2;                                      // 너무 멀지 않게
+    if (gap < need) sc += (need - gap) / L.fs * 1.5;             // 꼬리가 보일 만큼은 떨어지게
+    const box = [cx - L.ex, cy - L.ey, cx + L.ex, cy + L.ey], area = (box[2] - box[0]) * (box[3] - box[1]);
+    const tail = segPts(cx, cy, anchor.x, anchor.y, 0.3);
+    for (const o of others) {
+      sc += overlap(box, o.box) / area * 10;                     // 다른 말풍선과 겹치지 않게
+      sc += ptsInBox(tail, o.box) * 4;                           // 내 꼬리가 다른 말풍선을 지나가지 않게
+      sc += ptsInBox(o.pts, box) * 4;                            // 다른 꼬리를 덮지 않게
+    }
+    for (const g of guard) if (Math.hypot((g.x - cx) / L.ex, (g.y - cy) / L.ey) < 1.15) sc += 3;
+    for (const f of (s.faces || [])) {
+      const fb = [f.x - f.w * 0.1, f.y - f.h * 0.1, f.x + f.w * 1.1, f.y + f.h * 1.1];
+      sc += overlap(box, fb) / Math.min(area, (fb[2] - fb[0]) * (fb[3] - fb[1])) * 6;
+    }
+    sc += (cy / s.h) * 0.3;                                      // 되도록 위쪽에
+    sc += Math.random() * jitter;
+    if (!best || sc < best.sc) best = { sc, cx, cy };
+  }
+  b.x = best.cx; b.y = best.cy;
+  aimTip(s, b, anchor);
+}
+function aimTip(s, b, a) {
+  const L = layout(s, b);
+  const vx = b.x - a.x, vy = b.y - a.y, d = Math.hypot(vx, vy) || 1, ux = vx / d, uy = vy / d;
+  const re = 1 / Math.sqrt((ux / L.rx) ** 2 + (uy / L.ry) ** 2);
+  const off = clamp((d - re - minGap(b, L)) * 0.5, 0, Math.hypot(s.w, s.h) * 0.02);  // 얼굴에 딱 붙지 않게 살짝 띄워요
+  b.tx = a.x + ux * off; b.ty = a.y + uy * off;
+}
+// 여러 개면 한 번 놓아 본 뒤, 서로를 보면서 두 번 더 자리를 다듬어요
+function placeAll(s, items, jitter) {
+  const guardFor = (it) => items.filter(o => o !== it).map(o => o.a);
+  items.forEach((it, i) => placeBubble(s, it.b, it.a, items.slice(0, i).map(o => obstacle(s, o.b)), guardFor(it), jitter));
+  if (items.length > 1) for (let r = 0; r < 2; r++) {
+    items.forEach(it => placeBubble(s, it.b, it.a, items.filter(o => o !== it).map(o => obstacle(s, o.b)), guardFor(it), jitter * 0.3));
+  }
+}
+
+function autoBubbles(s, jitter = 0.05) {
+  let last = '';
+  const items = findAnchors(s, settings.count).map(a => { const b = makeBubble(nextPhrase(last)); last = b.text; return { b, a }; });
+  s.bubbles = items.map(it => it.b);
+  placeAll(s, items, jitter);
+}
+
+/* ================= 말풍선 그리기 ================= */
+function arcAngles(rx, ry, n, phase) {            // 둘레를 고르게 n등분하는 각도들
+  const M = 256, cum = [0];
+  let px = rx, py = 0;
+  for (let i = 1; i <= M; i++) { const t = i / M * Math.PI * 2, x = rx * Math.cos(t), y = ry * Math.sin(t); cum.push(cum[i - 1] + Math.hypot(x - px, y - py)); px = x; py = y; }
+  const total = cum[M], out = [];
+  let j = 1;
+  for (let k = 0; k < n; k++) {
+    const target = ((k + phase) / n) * total;
+    while (j < M && cum[j] < target) j++;
+    const f = (target - cum[j - 1]) / ((cum[j] - cum[j - 1]) || 1);
+    out.push(((j - 1 + f) / M) * Math.PI * 2);
+  }
+  return { ts: out, per: total };
+}
+function ellipsePerimeter(rx, ry) { return Math.PI * (3 * (rx + ry) - Math.sqrt((3 * rx + ry) * (rx + 3 * ry))); }
+function normalAt(t, rx, ry) { const nx = Math.cos(t) / rx, ny = Math.sin(t) / ry, l = Math.hypot(nx, ny) || 1; return [nx / l, ny / l]; }
+
+function roundRectPath(ctx, x, y, w, h, r) {
+  ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.arcTo(x + w, y, x + w, y + r, r);
+  ctx.lineTo(x + w, y + h - r); ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+  ctx.lineTo(x + r, y + h); ctx.arcTo(x, y + h, x, y + h - r, r);
+  ctx.lineTo(x, y + r); ctx.arcTo(x, y, x + r, y, r); ctx.closePath();
+}
+function cloudPath(ctx, b, L) {
+  const n = Math.max(7, Math.round(ellipsePerimeter(L.rx, L.ry) / (L.fs * 1.7)));
+  const { ts } = arcAngles(L.rx, L.ry, n, rng(b.seed)());
+  const bump = L.fs * 0.95;
+  for (let i = 0; i < n; i++) {
+    const t0 = ts[i]; let t1 = ts[(i + 1) % n]; if (t1 <= t0) t1 += Math.PI * 2;
+    const tm = (t0 + t1) / 2, [nx, ny] = normalAt(tm, L.rx, L.ry);
+    if (i === 0) ctx.moveTo(b.x + L.rx * Math.cos(t0), b.y + L.ry * Math.sin(t0));
+    ctx.quadraticCurveTo(b.x + L.rx * Math.cos(tm) + nx * bump, b.y + L.ry * Math.sin(tm) + ny * bump,
+      b.x + L.rx * Math.cos(t1), b.y + L.ry * Math.sin(t1));
+  }
+  ctx.closePath();
+}
+function shoutPath(ctx, b, L) {
+  const r = rng(b.seed);
+  const n = Math.max(10, Math.round(ellipsePerimeter(L.rx, L.ry) / (L.fs * 1.1)));
+  const { ts } = arcAngles(L.rx, L.ry, n * 2, r());
+  for (let i = 0; i < n * 2; i++) {
+    const t = ts[i]; let x = b.x + L.rx * Math.cos(t), y = b.y + L.ry * Math.sin(t);
+    if (i % 2 === 0) { const [nx, ny] = normalAt(t, L.rx, L.ry), len = L.fs * (0.6 + r() * 0.35); x += nx * len; y += ny * len; }
+    i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  }
+  ctx.closePath();
+}
+function bodyPath(ctx, b, L) {
+  if (b.style === 'box') roundRectPath(ctx, b.x - L.rx, b.y - L.ry, L.rx * 2, L.ry * 2, Math.min(L.ry, L.fs * 0.5));
+  else if (b.style === 'thought') cloudPath(ctx, b, L);
+  else if (b.style === 'shout') shoutPath(ctx, b, L);
+  else ctx.ellipse(b.x, b.y, L.rx, L.ry, 0, 0, Math.PI * 2);
+}
+function tailInfo(b, L) {
+  if (b.style === 'box') return null;
+  const dx = b.tx - b.x, dy = b.ty - b.y, d = Math.hypot(dx, dy);
+  if (!d) return null;
+  const ux = dx / d, uy = dy / d, re = 1 / Math.sqrt((ux / L.rx) ** 2 + (uy / L.ry) ** 2);
+  const edge = b.style === 'thought' ? re + L.fs * 0.5 : re;
+  if (d <= edge * 1.03) return null;
+  return { ux, uy, d, re, edge };
+}
+function tailPath(ctx, b, L, t) {
+  if (b.style === 'thought') {                        // 생각 풍선: 작은 동그라미가 이어져요
+    const sx = b.x + t.ux * t.edge, sy = b.y + t.uy * t.edge;
+    const len = Math.hypot(b.tx - sx, b.ty - sy);
+    const n = clamp(Math.round(len / (L.fs * 0.85)), 1, 3);
+    for (let i = 0; i < n; i++) {
+      const f = n === 1 ? 0.6 : 0.3 + 0.7 * i / (n - 1);
+      const r = L.fs * (n === 1 ? 0.34 : 0.45 - 0.25 * i / (n - 1));
+      const cx = sx + (b.tx - sx) * f, cy = sy + (b.ty - sy) * f;
+      ctx.moveTo(cx + r, cy); ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    }
+    return;
+  }
+  const px = -t.uy, py = t.ux;
+  const hw = Math.min(L.rx, L.ry) * 0.3, bc = t.re * 0.7;
+  const bx = b.x + t.ux * bc, by = b.y + t.uy * bc;
+  const b1x = bx + px * hw, b1y = by + py * hw, b2x = bx - px * hw, b2y = by - py * hw;
+  ctx.moveTo(b1x, b1y);
+  if (b.style === 'shout') { ctx.lineTo(b.tx, b.ty); ctx.lineTo(b2x, b2y); }
+  else {
+    const bend = hw * 0.9 * (t.ux >= 0 ? 1 : -1);
+    ctx.quadraticCurveTo((b1x + b.tx) / 2 + px * bend, (b1y + b.ty) / 2 + py * bend, b.tx, b.ty);
+    ctx.quadraticCurveTo((b2x + b.tx) / 2 + px * bend, (b2y + b.ty) / 2 + py * bend, b2x, b2y);
+  }
+  ctx.closePath();
+}
+
+// v.k = 그림 1픽셀이 화면 몇 픽셀인지 (그림자 크기 맞추기용)
+function drawBubble(ctx, s, b, v) {
+  const L = layout(s, b), t = tailInfo(b, L);
+  ctx.save();
+  if (v.anim && b.born) {
+    const p = Math.min(1, (v.now - b.born) / 380);
+    if (p < 1) {
+      const a = 0.3 + 0.7 * easeOutBack(p);
+      ctx.translate(b.x, b.y); ctx.scale(a, a); ctx.translate(-b.x, -b.y);
+      ctx.globalAlpha = Math.min(1, p * 3);
+      v.animating = true;
+    } else b.born = 0;
+  }
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  // 1) 굵은 테두리 + 그림자  2) 안쪽을 흰색으로 채워 테두리 안쪽 절반을 덮어요 → 꼬리와 몸통이 한 덩어리로 보여요
+  ctx.shadowColor = 'rgba(0,0,0,0.38)'; ctx.shadowBlur = L.fs * 0.35 * v.k; ctx.shadowOffsetY = L.fs * 0.1 * v.k;
+  ctx.strokeStyle = INK; ctx.lineWidth = L.lw * 2;
+  ctx.beginPath(); bodyPath(ctx, b, L); if (t) tailPath(ctx, b, L, t); ctx.stroke();
+  ctx.shadowColor = 'transparent';
+  ctx.fillStyle = FILL[b.style];
+  ctx.beginPath(); bodyPath(ctx, b, L); ctx.fill();
+  if (t) { ctx.beginPath(); tailPath(ctx, b, L, t); ctx.fill(); }
+  if (v.skipText !== b.id) {
+    ctx.fillStyle = INK; ctx.font = fontStr(L.fs); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const y0 = b.y - L.th / 2 + L.lh / 2;
+    L.lines.forEach((ln, i) => ctx.fillText(ln, b.x, y0 + i * L.lh + L.fs * 0.05));
+  }
+  ctx.restore();
+}
+function drawSelection(ctx, s, b) {
+  const L = layout(s, b), u = 1 / view.css, pad = 6 * u;
+  ctx.save();
+  ctx.setLineDash([9 * u, 7 * u]); ctx.lineWidth = 3 * u; ctx.strokeStyle = '#4dabf7';
+  ctx.strokeRect(b.x - L.ex - pad, b.y - L.ey - pad, (L.ex + pad) * 2, (L.ey + pad) * 2);
+  ctx.setLineDash([]);
+  if (b.style !== 'box') {                          // 꼬리 끝 손잡이
+    ctx.beginPath(); ctx.arc(b.tx, b.ty, 13 * u, 0, Math.PI * 2);
+    ctx.fillStyle = '#ff3b6b'; ctx.fill(); ctx.lineWidth = 3 * u; ctx.strokeStyle = '#fff'; ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/* ================= 화면 그리기 ================= */
+let rafId = 0;
+function draw() { if (!rafId) rafId = requestAnimationFrame(frame); }
+function frame(now) {
+  rafId = 0;
+  const dpr = window.devicePixelRatio || 1, W = stage.clientWidth, H = stage.clientHeight;
+  const cw = Math.max(1, Math.round(W * dpr)), ch = Math.max(1, Math.round(H * dpr));
+  if (canvas.width !== cw || canvas.height !== ch) { canvas.width = cw; canvas.height = ch; }
+  const ctx = vctx;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = settings.bg; ctx.fillRect(0, 0, cw, ch);
+  const s = slide();
+  if (!s) return;
+  const pad = present ? 0 : 12;
+  view.css = Math.max(0.01, Math.min((W - pad * 2) / s.w, (H - pad * 2) / s.h));
+  view.ox = (W - s.w * view.css) / 2; view.oy = (H - s.h * view.css) / 2;
+  const k = view.css * dpr;
+  ctx.setTransform(k, 0, 0, k, view.ox * dpr, view.oy * dpr);
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(s.src, 0, 0, s.w, s.h);
+  const v = { k, now, anim: true, animating: false, skipText: editing ? editing.b.id : 0 };
+  if (!hideBubbles) {
+    for (const b of s.bubbles) drawBubble(ctx, s, b, v);
+    const sb = selBubble();
+    if (sb && !idle && !editing) drawSelection(ctx, s, sb);
+  }
+  if (v.animating) draw();
+  if (editing) positionEditor();
+}
+new ResizeObserver(() => draw()).observe(stage);
+
+/* ================= 사진 불러오기 ================= */
+function toCanvas(img, iw, ih) {
+  const k = Math.min(1, MAX_SIDE / Math.max(iw, ih));
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(iw * k)); c.height = Math.max(1, Math.round(ih * k));
+  const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(img, 0, 0, c.width, c.height);
+  return c;
+}
+async function loadFile(file) {
+  try {
+    const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    const c = toCanvas(bmp, bmp.width, bmp.height); if (bmp.close) bmp.close(); return c;
+  } catch (e) {
+    const url = URL.createObjectURL(file);
+    try {
+      const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+      return toCanvas(img, img.naturalWidth, img.naturalHeight);
+    } finally { URL.revokeObjectURL(url); }
+  }
+}
+function makeThumb(c) {
+  const k = Math.min(200 / c.width, 112 / c.height);
+  const t = document.createElement('canvas'); t.width = Math.max(1, Math.round(c.width * k)); t.height = Math.max(1, Math.round(c.height * k));
+  t.getContext('2d').drawImage(c, 0, 0, t.width, t.height);
+  return t.toDataURL('image/jpeg', 0.75);
+}
+async function addSlide(srcCanvas, name) {
+  const c = Math.max(srcCanvas.width, srcCanvas.height) > MAX_SIDE ? toCanvas(srcCanvas, srcCanvas.width, srcCanvas.height) : srcCanvas;
+  const s = { id: uid++, name: name || '그림', src: c, w: c.width, h: c.height, bubbles: [], thumb: makeThumb(c) };
+  s.analysis = analyze(s);
+  s.faces = await detectFaces(s);
+  autoBubbles(s);
+  slides.push(s);
+  renderThumbs();
+  return s;
+}
+const isImageFile = (f) => (f.type || '').startsWith('image/') || /\.(jpe?g|png|gif|webp|bmp|avif|heic|heif)$/i.test(f.name || '');
+async function addFiles(fileList) {
+  const files = Array.from(fileList || []).filter(isImageFile);
+  if (!files.length) { toast('그림 파일(jpg, png 등)만 올릴 수 있어요'); return; }
+  let first = -1, bad = 0;
+  for (const f of files) {
+    try {
+      const c = await loadFile(f);
+      await addSlide(c, (f.name || '그림').replace(/\.[^.]+$/, ''));
+      if (first < 0) { first = slides.length - 1; show(first); }
+    } catch (e) { bad++; if (/\.hei[cf]$/i.test(f.name || '')) toast('아이폰 HEIC 사진은 이 브라우저에서 못 열어요. JPG로 바꿔서 올려 주세요.', 4500); }
+  }
+  if (bad && files.length > 1) toast(`${files.length - bad}장 올렸어요 (${bad}장은 열 수 없었어요)`);
+  else if (bad) toast('이 파일은 열 수 없어요');
+  else if (files.length > 1) toast(`${files.length}장 올렸어요 · ← → 로 넘겨 보세요`);
+  updateUI();
+}
+
+/* ================= 슬라이드 ================= */
+function renderThumbs() {
+  const box = $('#thumbs');
+  box.innerHTML = '';
+  slides.forEach((s, i) => {
+    const im = document.createElement('img');
+    im.src = s.thumb; im.alt = s.name; im.title = s.name; im.draggable = false;
+    im.addEventListener('click', () => show(i));
+    box.appendChild(im);
+  });
+  updateUI();
+}
+function show(i) {
+  if (editing) commitEdit();
+  if (!slides.length) { cur = -1; updateUI(); draw(); return; }
+  cur = (i + slides.length) % slides.length;
+  selId = 0;
+  const now = performance.now();
+  slides[cur].bubbles.forEach((b, j) => { b.born = now + j * 140; });   // 넘길 때마다 말풍선이 "뿅" 하고 나와요
+  updateUI(); draw();
+  const im = $('#thumbs').children[cur];
+  if (im && im.scrollIntoView) im.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+}
+function removeSlide() {
+  if (!slide()) return;
+  slides.splice(cur, 1);
+  if (slides.length < 2) setPlay(false);
+  renderThumbs();
+  show(Math.min(cur, slides.length - 1));
+}
+
+/* ================= 말풍선 편집 ================= */
+function reroll() {
+  const s = slide(); if (!s) return;
+  if (editing) commitEdit();
+  autoBubbles(s, 0.35);
+  selId = 0;
+  const now = performance.now(); s.bubbles.forEach((b, j) => { b.born = now + j * 140; });
+  hideBubbles = false; updateUI(); draw();
+}
+function addBubble(anchor) {
+  const s = slide(); if (!s) return;
+  if (editing) commitEdit();
+  let a = anchor;
+  if (!a) {                                         // 아직 말풍선이 안 가리키는 곳을 골라요
+    const cands = findAnchors(s, 3);
+    let bestD = -1;
+    for (const c of cands) {
+      const d = s.bubbles.length ? Math.min(...s.bubbles.map(b => Math.hypot(b.tx - c.x, b.ty - c.y))) : 1;
+      if (d > bestD) { bestD = d; a = c; }
+    }
+  }
+  const last = s.bubbles.length ? s.bubbles[s.bubbles.length - 1].text : '';
+  const b = makeBubble(nextPhrase(last));
+  placeBubble(s, b, a, s.bubbles.map(o => obstacle(s, o)), s.bubbles.map(o => ({ x: o.tx, y: o.ty })), 0.2);
+  s.bubbles.push(b);
+  selId = b.id; hideBubbles = false;
+  updateUI(); draw();
+}
+function dice() {
+  const s = slide(), b = selBubble(); if (!b) return;
+  b.text = nextPhrase(b.text);
+  if (b.autoStyle) b.style = styleFor(b.text);
+  clampBubble(s, b); b.born = performance.now(); updateUI(); draw();
+}
+function cycleStyle() {
+  const s = slide(), b = selBubble(); if (!b) return;
+  b.style = STYLES[(STYLES.indexOf(b.style) + 1) % STYLES.length];
+  b.autoStyle = false;
+  clampBubble(s, b); updateUI(); draw();
+}
+function resizeText(f) {
+  const s = slide(); if (!s) return;
+  const b = selBubble();
+  if (b) { b.scale = clamp(b.scale * f, 0.35, 3); clampBubble(s, b); }
+  else {
+    settings.fontScale = clamp(Math.round(settings.fontScale * f * 10) / 10, 0.6, 2); saveSettings();
+    slides.forEach(sl => sl.bubbles.forEach(o => clampBubble(sl, o)));
+    toast(`전체 글자 크기 ${Math.round(settings.fontScale * 100)}%`, 1200);
+  }
+  draw();
+}
+function deleteBubble() {
+  const s = slide(), b = selBubble(); if (!b) return;
+  s.bubbles = s.bubbles.filter(o => o !== b); selId = 0; updateUI(); draw();
+}
+function toggleHide() {
+  if (!slide()) return;
+  hideBubbles = !hideBubbles;
+  if (!hideBubbles) { const now = performance.now(); slide().bubbles.forEach((b, j) => { b.born = now + j * 140; }); }
+  updateUI(); draw();
+}
+
+/* 글 고치기 (말풍선 위에 바로 입력) */
+function startEdit(b) {
+  if (!b) return;
+  if (editing) commitEdit();
+  editing = { b, orig: b.text };
+  selId = b.id;
+  editor.value = b.text;
+  editor.style.background = FILL[b.style];
+  editor.hidden = false;
+  positionEditor();
+  editor.focus(); editor.select();
+  updateUI(); draw();
+}
+function positionEditor() {
+  const s = slide(); if (!s || !editing) return;
+  const b = editing.b, L = layout(s, b), c = view.css, fs = L.fs * c;
+  const w = Math.max(L.tw, L.fs * 3) * c + fs * 0.8, h = L.th * c + fs * 0.4;
+  editor.style.font = fontStr(fs);
+  editor.style.lineHeight = (L.lh * c) + 'px';
+  editor.style.width = w + 'px'; editor.style.height = h + 'px';
+  editor.style.left = (view.ox + b.x * c - w / 2) + 'px';
+  editor.style.top = (view.oy + b.y * c - h / 2) + 'px';
+}
+function commitEdit() {
+  if (!editing) return;
+  const { b } = editing, s = slide();
+  editing = null; editor.hidden = true; editor.blur();
+  b.text = b.text.replace(/\s+$/, '');
+  if (!b.text.trim() && s) { s.bubbles = s.bubbles.filter(o => o !== b); selId = 0; }
+  else if (s) clampBubble(s, b);
+  updateUI(); draw();
+}
+function cancelEdit() {
+  if (!editing) return;
+  editing.b.text = editing.orig;
+  commitEdit();
+}
+editor.addEventListener('input', () => {
+  if (!editing) return;
+  editing.b.text = editor.value;
+  clampBubble(slide(), editing.b);
+  draw();
+});
+editor.addEventListener('keydown', (e) => {
+  // 한글 입력 중(조합 중)에 누른 Enter는 글자 완성용이라 무시해요
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); commitEdit(); }
+  else if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
+  e.stopPropagation();
+});
+editor.addEventListener('blur', () => { if (editing) commitEdit(); });
+
+/* ================= 마우스 / 터치 (전자칠판도 OK) ================= */
+function toImg(e) {
+  const r = canvas.getBoundingClientRect();
+  return { x: (e.clientX - r.left - view.ox) / view.css, y: (e.clientY - r.top - view.oy) / view.css };
+}
+function hitTest(s, p) {
+  for (let i = s.bubbles.length - 1; i >= 0; i--) {
+    const b = s.bubbles[i], L = layout(s, b);
+    if (b.style === 'box') { if (Math.abs(p.x - b.x) <= L.ex && Math.abs(p.y - b.y) <= L.ey) return b; }
+    else {
+      const rx = b.style === 'speech' ? L.rx * 1.08 : L.ex, ry = b.style === 'speech' ? L.ry * 1.08 : L.ey;
+      if (((p.x - b.x) / rx) ** 2 + ((p.y - b.y) / ry) ** 2 <= 1) return b;
+    }
+  }
+  return null;
+}
+let lastTap = { t: 0, x: 0, y: 0 };
+canvas.addEventListener('pointerdown', (e) => {
+  if (editing) commitEdit();
+  const s = slide(); if (!s) return;
+  const p = toImg(e), sb = selBubble(), u = 1 / view.css;
+  let hit = null, mode = null;
+  if (!hideBubbles && sb && sb.style !== 'box' && Math.hypot(p.x - sb.tx, p.y - sb.ty) < 26 * u) { hit = sb; mode = 'tip'; }
+  else if (!hideBubbles) { hit = hitTest(s, p); if (hit) mode = 'move'; }
+  if (hit) { selId = hit.id; s.bubbles.splice(s.bubbles.indexOf(hit), 1); s.bubbles.push(hit); }
+  else selId = 0;
+  drag = { mode, b: hit, id: e.pointerId, sx: e.clientX, sy: e.clientY, moved: false,
+    dx: hit ? (mode === 'tip' ? hit.tx : hit.x) - p.x : 0, dy: hit ? (mode === 'tip' ? hit.ty : hit.y) - p.y : 0 };
+  try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+  updateUI(); draw();
+});
+canvas.addEventListener('pointermove', (e) => {
+  if (!drag || drag.id !== e.pointerId) return;
+  if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 5) drag.moved = true;
+  if (!drag.moved || !drag.b) return;
+  const s = slide(), p = toImg(e), b = drag.b;
+  if (drag.mode === 'tip') { b.tx = clamp(p.x + drag.dx, 0, s.w); b.ty = clamp(p.y + drag.dy, 0, s.h); }
+  else { b.x = p.x + drag.dx; b.y = p.y + drag.dy; clampBubble(s, b); }   // 꼬리 끝은 그대로 두고 몸통만 옮겨요
+  draw();
+});
+function endDrag(e) {
+  if (!drag || drag.id !== e.pointerId) return;
+  const d = drag; drag = null;
+  if (d.moved || e.type === 'pointercancel') return;
+  const now = performance.now();
+  if (now - lastTap.t < 400 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30) {
+    lastTap.t = 0;
+    const s = slide(), p = toImg(e);
+    if (d.b) startEdit(d.b);
+    else if (s && !hideBubbles && p.x >= 0 && p.y >= 0 && p.x <= s.w && p.y <= s.h) addBubble({ x: p.x, y: p.y });
+  } else lastTap = { t: now, x: e.clientX, y: e.clientY };
+}
+canvas.addEventListener('pointerup', endDrag);
+canvas.addEventListener('pointercancel', endDrag);
+
+/* ================= 저장 ================= */
+function exportPNG() {
+  const s = slide(); if (!s) return;
+  if (editing) commitEdit();
+  const c = document.createElement('canvas'); c.width = s.w; c.height = s.h;
+  const x = c.getContext('2d');
+  x.drawImage(s.src, 0, 0);
+  if (!hideBubbles) for (const b of s.bubbles) drawBubble(x, s, b, { k: 1, anim: false, skipText: 0 });
+  c.toBlob((blob) => {
+    if (!blob) { toast('저장하지 못했어요'); return; }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${s.name}_말풍선.png`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    toast('💾 그림을 저장했어요 (다운로드 폴더)');
+  }, 'image/png');
+}
+
+/* ================= 크게 보기 (빔프로젝터) ================= */
+const fsElement = () => document.fullscreenElement || document.webkitFullscreenElement;
+function setPresent(on) {
+  present = on;
+  document.body.classList.toggle('present', on);
+  $('#presentLabel').textContent = on ? '작게 보기' : '크게 보기';
+  if (on) toast('크게 보기 · 마우스를 가만히 두면 메뉴가 숨어요 (F 또는 Esc로 끝내기)', 3200);
+  poke(); draw();
+}
+function togglePresent() {
+  if (fsElement()) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
+  if (present) { setPresent(false); return; }
+  const el = document.documentElement, req = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (!req) { setPresent(true); return; }
+  try { const r = req.call(el); if (r && r.catch) r.catch(() => setPresent(true)); } catch (e) { setPresent(true); }
+}
+function onFsChange() { setPresent(!!fsElement()); }
+document.addEventListener('fullscreenchange', onFsChange);
+document.addEventListener('webkitfullscreenchange', onFsChange);
+
+let idleT = 0;
+function poke() {
+  if (idle) { idle = false; document.body.classList.remove('idle'); draw(); }
+  clearTimeout(idleT);
+  if (present) idleT = setTimeout(() => {
+    if (drag || editing || !camEl.hidden || !setEl.hidden) { poke(); return; }
+    idle = true; document.body.classList.add('idle'); draw();
+  }, 2600);
+}
+['pointermove', 'pointerdown', 'keydown', 'wheel'].forEach(ev => window.addEventListener(ev, poke, { passive: true }));
+
+/* ================= 자동 넘김 ================= */
+function setPlay(on) {
+  clearInterval(playTimer); playTimer = 0;
+  if (on && slides.length > 1) {
+    playTimer = setInterval(() => { if (!editing && !drag && camEl.hidden && setEl.hidden) show(cur + 1); }, settings.interval * 1000);
+  }
+  updateUI();
+}
+
+/* ================= 카메라 ================= */
+let stream = null;
+const camSel = $('#camSel'), mirrorChk = $('#mirrorChk');
+function stopStream() { if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; } video.srcObject = null; }
+async function openCamera() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { captureInput.click(); return; }
+  if (editing) commitEdit();
+  camEl.hidden = false;
+  mirrorChk.checked = !!settings.mirror;
+  video.style.transform = settings.mirror ? 'scaleX(-1)' : '';
+  await startStream(settings.camId);
+}
+async function startStream(id) {
+  stopStream();
+  const size = { width: { ideal: 1920 }, height: { ideal: 1080 } };
+  const want = id ? { deviceId: { exact: id }, ...size } : { facingMode: { ideal: 'environment' }, ...size };
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: want }); }
+  catch (e) {
+    try { if (!id) throw e; stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: true }); }
+    catch (e2) { cameraFailed(e2); return; }
+  }
+  if (camEl.hidden) { stopStream(); return; }        // 기다리는 사이에 닫았으면
+  video.srcObject = stream;
+  try { await video.play(); } catch (e) {}
+  const tr = stream.getVideoTracks()[0];
+  const curId = tr && tr.getSettings ? tr.getSettings().deviceId : '';
+  try {
+    const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
+    camSel.innerHTML = '';
+    devs.forEach((d, i) => { const o = document.createElement('option'); o.value = d.deviceId; o.textContent = d.label || `카메라 ${i + 1}`; camSel.appendChild(o); });
+    if (curId) camSel.value = curId;
+    camSel.hidden = devs.length < 2;
+  } catch (e) { camSel.hidden = true; }
+}
+function cameraFailed(e) {
+  closeCamera();
+  const why = e && e.name === 'NotAllowedError' ? '카메라 권한이 막혀 있어요. 주소창 옆 자물쇠 아이콘에서 카메라를 허용해 주세요.'
+    : e && e.name === 'NotFoundError' ? '연결된 카메라가 없어요.'
+    : e && e.name === 'NotReadableError' ? '다른 프로그램이 카메라를 쓰고 있어요.'
+    : '카메라를 열 수 없어요.';
+  toast(why + ' 사진 파일로 올려도 돼요.', 5000);
+}
+function closeCamera() { stopStream(); camEl.hidden = true; }
+async function shoot() {
+  if (!stream || !video.videoWidth) { toast('카메라가 아직 준비 중이에요', 1500); return; }
+  const c = document.createElement('canvas'); c.width = video.videoWidth; c.height = video.videoHeight;
+  const x = c.getContext('2d');
+  if (settings.mirror) { x.translate(c.width, 0); x.scale(-1, 1); }
+  x.drawImage(video, 0, 0);
+  const fl = $('#flash'); fl.classList.add('go'); void fl.offsetWidth; fl.classList.remove('go');
+  const name = '카메라_' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(/:/g, '');
+  setTimeout(closeCamera, 250);
+  await addSlide(c, name);
+  show(slides.length - 1);
+}
+camSel.addEventListener('change', () => { settings.camId = camSel.value; saveSettings(); startStream(camSel.value); });
+mirrorChk.addEventListener('change', () => { settings.mirror = mirrorChk.checked; saveSettings(); video.style.transform = settings.mirror ? 'scaleX(-1)' : ''; });
+
+/* ================= 설정 ================= */
+const presetSel = $('#presetSel'), phrasesTa = $('#phrases');
+Object.entries(PRESETS).forEach(([k, p]) => { const o = document.createElement('option'); o.value = k; o.textContent = p.name; presetSel.appendChild(o); });
+{ const o = document.createElement('option'); o.value = 'custom'; o.textContent = '✍️ 직접 쓴 문구'; presetSel.appendChild(o); }
+function openSettings() {
+  if (editing) commitEdit();
+  presetSel.value = settings.preset in PRESETS || settings.preset === 'custom' ? settings.preset : 'custom';
+  phrasesTa.value = settings.phrases;
+  $('#countSel').value = String(settings.count);
+  $('#fontRange').value = String(settings.fontScale); $('#fontVal').textContent = Math.round(settings.fontScale * 100) + '%';
+  $('#bgSel').value = settings.bg;
+  $('#intervalSel').value = String(settings.interval);
+  const faceOK = 'FaceDetector' in window;
+  $('#faceChk').checked = faceOK && settings.useFace; $('#faceChk').disabled = !faceOK;
+  $('#faceNote').textContent = faceOK ? '' : '(이 브라우저는 지원하지 않아요 — 그림 모양으로 찾아요)';
+  setEl.hidden = false;
+}
+function closeSettings() { setEl.hidden = true; }
+presetSel.addEventListener('change', () => {
+  settings.preset = presetSel.value;
+  if (PRESETS[presetSel.value]) { settings.phrases = PRESETS[presetSel.value].lines.join('\n'); phrasesTa.value = settings.phrases; }
+  bag = []; saveSettings();
+});
+phrasesTa.addEventListener('input', () => { settings.phrases = phrasesTa.value; settings.preset = 'custom'; presetSel.value = 'custom'; bag = []; saveSettings(); });
+$('#countSel').addEventListener('change', (e) => { settings.count = +e.target.value; saveSettings(); });
+$('#fontRange').addEventListener('input', (e) => {
+  settings.fontScale = +e.target.value; $('#fontVal').textContent = Math.round(settings.fontScale * 100) + '%';
+  slides.forEach(s => s.bubbles.forEach(b => clampBubble(s, b))); saveSettings(); draw();
+});
+$('#bgSel').addEventListener('change', (e) => { settings.bg = e.target.value; applyBg(); saveSettings(); draw(); });
+$('#intervalSel').addEventListener('change', (e) => { settings.interval = +e.target.value; saveSettings(); if (playTimer) setPlay(true); });
+$('#faceChk').addEventListener('change', (e) => { settings.useFace = e.target.checked; saveSettings(); });
+setEl.addEventListener('pointerdown', (e) => { if (e.target === setEl) closeSettings(); });
+function applyBg() { document.documentElement.style.setProperty('--bg', settings.bg); }
+
+/* ================= 버튼 / 상태 표시 ================= */
+const ACTIONS = {
+  open: () => fileInput.click(), camera: openCamera, reroll, add: () => addBubble(), present: togglePresent,
+  save: exportPNG, settings: openSettings, closeSettings, edit: () => startEdit(selBubble()), dice, style: cycleStyle,
+  bigger: () => resizeText(1.15), smaller: () => resizeText(1 / 1.15), del: deleteBubble,
+  prev: () => show(cur - 1), next: () => show(cur + 1), play: () => setPlay(!playTimer), hide: toggleHide,
+  removeSlide, shoot, closeCamera,
+};
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-act]');
+  if (!el || el.disabled) return;
+  const fn = ACTIONS[el.dataset.act];
+  if (fn) { fn(); if (el.dataset.act !== 'edit') el.blur(); }
+});
+function updateUI() {
+  const has = slides.length > 0, many = slides.length > 1, sb = selBubble();
+  document.querySelectorAll('[data-need="slide"]').forEach(b => { b.disabled = !has; });
+  document.querySelectorAll('[data-need="many"]').forEach(b => { b.disabled = !many; });
+  $('#empty').hidden = has;
+  $('#filmstrip').hidden = !has;
+  $('#bubblebar').hidden = !sb || !!editing || hideBubbles;
+  if (sb) $('#styleLabel').textContent = STYLE_LABEL[sb.style];
+  $('#counter').textContent = has ? `${cur + 1} / ${slides.length}` : '';
+  Array.from($('#thumbs').children).forEach((im, i) => im.classList.toggle('active', i === cur));
+  $('#playBtn').classList.toggle('on', !!playTimer);
+  $('#playIco').textContent = playTimer ? '⏸️' : '⏯️';
+  $('#playLabel').textContent = playTimer ? '멈추기' : '자동 넘김';
+  $('#hideBtn').classList.toggle('on', hideBubbles);
+  $('#hideIco').textContent = hideBubbles ? '👀' : '🙈';
+  $('#hideLabel').textContent = hideBubbles ? '말풍선 보이기' : '말풍선 숨기기';
+}
+
+/* ================= 키보드 =================
+   한글 입력 상태에서도 되도록 글자 대신 "키 위치(e.code)"로 알아봐요 */
+window.addEventListener('keydown', (e) => {
+  if (e.target === editor) return;
+  if (!camEl.hidden) {
+    if (e.code === 'Space' || e.key === 'Enter') { e.preventDefault(); shoot(); }
+    else if (e.key === 'Escape') closeCamera();
+    return;
+  }
+  if (!setEl.hidden) { if (e.key === 'Escape') closeSettings(); return; }
+  if (/^(input|textarea|select)$/i.test(e.target.tagName || '')) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const map = {
+    ArrowRight: () => show(cur + 1), PageDown: () => show(cur + 1), Space: () => show(cur + 1),
+    ArrowLeft: () => show(cur - 1), PageUp: () => show(cur - 1),
+    Delete: deleteBubble, Backspace: deleteBubble, Enter: () => startEdit(selBubble()), NumpadEnter: () => startEdit(selBubble()),
+    Equal: () => resizeText(1.15), NumpadAdd: () => resizeText(1.15), Minus: () => resizeText(1 / 1.15), NumpadSubtract: () => resizeText(1 / 1.15),
+    KeyF: togglePresent, KeyR: reroll, KeyB: () => addBubble(), KeyE: () => startEdit(selBubble()), KeyD: dice, KeyT: cycleStyle,
+    KeyS: exportPNG, KeyC: openCamera, KeyO: () => fileInput.click(), KeyP: () => setPlay(!playTimer), KeyH: toggleHide,
+  };
+  if (e.key === 'Escape') { if (selId) { selId = 0; updateUI(); draw(); } return; }
+  const fn = map[e.code];
+  if (!fn) return;
+  if (!slide() && !['KeyF', 'KeyC', 'KeyO'].includes(e.code)) return;
+  e.preventDefault();
+  fn();
+});
+
+/* ================= 파일 넣는 여러 방법 ================= */
+fileInput.addEventListener('change', () => { addFiles(fileInput.files); fileInput.value = ''; });
+captureInput.addEventListener('change', () => { addFiles(captureInput.files); captureInput.value = ''; });
+window.addEventListener('paste', (e) => {
+  if (e.target === editor || /^(input|textarea)$/i.test((e.target && e.target.tagName) || '')) return;
+  const files = Array.from((e.clipboardData && e.clipboardData.files) || []);
+  if (files.length) { e.preventDefault(); addFiles(files); }
+});
+const hasFiles = (e) => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+let dragDepth = 0;
+window.addEventListener('dragenter', (e) => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth++; $('#drophint').hidden = false; });
+window.addEventListener('dragover', (e) => { if (hasFiles(e)) e.preventDefault(); });
+window.addEventListener('dragleave', (e) => { if (!hasFiles(e)) return; dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) $('#drophint').hidden = true; });
+window.addEventListener('drop', (e) => {
+  if (!hasFiles(e)) return;
+  e.preventDefault(); dragDepth = 0; $('#drophint').hidden = true;
+  addFiles(e.dataTransfer.files);
+});
+
+/* ================= 시작 ================= */
+applyBg();
+updateUI();
+draw();
+// 테스트·확장용
+window.bubbleProjector = { slides, addFiles, addSlide, show, settings, get current() { return slide(); } };
+})();
+</script>
+</body>
+</html>
